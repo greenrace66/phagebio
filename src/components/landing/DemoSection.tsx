@@ -1,5 +1,5 @@
 
-import { MoleculeViewer } from "@/components/molecule/MoleculeViewer";
+import MoleculeViewer from "@/components/molecule/MoleculeViewer";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
