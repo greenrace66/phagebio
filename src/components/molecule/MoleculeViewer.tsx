@@ -1,5 +1,7 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Select,
   SelectContent,
@@ -13,6 +15,8 @@ import * as NGL from "ngl";
 const MoleculeViewer = () => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<any>(null);
+  const [pdbId, setPdbId] = useState("1crn");
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!viewerRef.current) return;
@@ -21,13 +25,8 @@ const MoleculeViewer = () => {
     const stage = new NGL.Stage(viewerRef.current, { backgroundColor: "white" });
     stageRef.current = stage;
 
-    // Load a sample protein (PDB ID: 1CRN - Crambin)
-    stage.loadFile("rcsb://1crn").then((component: any) => {
-      component.addRepresentation("cartoon", {
-        color: "chainname"
-      });
-      component.autoView();
-    });
+    // Load the protein structure
+    loadStructure(pdbId);
 
     // Handle window resize
     const handleResize = () => {
@@ -40,6 +39,39 @@ const MoleculeViewer = () => {
       stage.dispose();
     };
   }, []);
+
+  const loadStructure = async (id: string) => {
+    if (!stageRef.current) return;
+    
+    try {
+      // Clear existing structures
+      stageRef.current.removeAllComponents();
+      
+      // Load new structure
+      const component = await stageRef.current.loadFile(`rcsb://${id}`);
+      component.addRepresentation("cartoon", {
+        color: "chainname"
+      });
+      component.autoView();
+      
+      toast({
+        title: "Structure loaded",
+        description: `Successfully loaded PDB ID: ${id}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load structure. Please check the PDB ID.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle PDB ID submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    loadStructure(pdbId);
+  };
 
   // Handle style changes
   const handleStyleChange = (style: string) => {
@@ -74,6 +106,16 @@ const MoleculeViewer = () => {
   return (
     <div className="flex flex-col h-full">
       <div className="bg-muted/30 border-b px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+          <Input
+            value={pdbId}
+            onChange={(e) => setPdbId(e.target.value)}
+            placeholder="Enter PDB ID"
+            className="w-32"
+          />
+          <Button type="submit" variant="outline" size="sm">Load</Button>
+        </form>
+        
         <div className="flex items-center space-x-2">
           <Select defaultValue="cartoon" onValueChange={handleStyleChange}>
             <SelectTrigger className="w-32">
@@ -141,7 +183,7 @@ const MoleculeViewer = () => {
                 
                 <div>
                   <h4 className="font-medium mb-1">Source</h4>
-                  <p className="text-muted-foreground">PDB ID: 1ABC</p>
+                  <p className="text-muted-foreground">PDB ID: {pdbId}</p>
                 </div>
               </div>
             </TabsContent>
