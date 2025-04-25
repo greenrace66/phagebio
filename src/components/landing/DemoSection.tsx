@@ -20,7 +20,6 @@ const DemoSection = () => {
           <div className="flex justify-center mb-6">
             <TabsList>
               <TabsTrigger value="viewer">Molecular Viewer</TabsTrigger>
-              <TabsTrigger value="prediction">Structure Prediction</TabsTrigger>
               <TabsTrigger value="docking">Molecular Docking</TabsTrigger>
             </TabsList>
           </div>
@@ -29,29 +28,6 @@ const DemoSection = () => {
             <Card className="border shadow-lg overflow-hidden">
               <div className="h-[500px]">
                 <MoleculeViewer />
-              </div>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="prediction">
-            <Card className="border shadow-lg overflow-hidden p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-xl font-semibold mb-4">Sample Structure Prediction</h3>
-                  <p className="text-muted-foreground mb-4">
-                    View this example of a predicted antimicrobial peptide structure
-                  </p>
-                  
-                  <div className="space-y-4 mt-6">
-                    <div className="border rounded-md p-3 bg-muted/30 font-mono text-sm overflow-auto whitespace-pre-wrap">
-                      KLCERIRGYKCPNRGYCT
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-black/5 rounded-lg overflow-hidden">
-                  <MoleculeViewer initialPdbId="1ZFU" />
-                </div>
               </div>
             </Card>
           </TabsContent>
