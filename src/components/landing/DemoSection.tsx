@@ -1,3 +1,4 @@
+
 import MoleculeViewer from "@/components/molecule/MoleculeViewer";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -36,24 +37,14 @@ const DemoSection = () => {
             <Card className="border shadow-lg overflow-hidden p-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="text-xl font-semibold mb-4">Protein Structure Prediction</h3>
+                  <h3 className="text-xl font-semibold mb-4">Sample Structure Prediction</h3>
                   <p className="text-muted-foreground mb-4">
-                    Upload your protein sequence and get an accurate 3D structure prediction 
-                    powered by state-of-the-art deep learning models.
+                    View this example of a predicted antimicrobial peptide structure
                   </p>
                   
                   <div className="space-y-4 mt-6">
-                    <h4 className="font-medium">Sample sequence (Antimicrobial peptide):</h4>
                     <div className="border rounded-md p-3 bg-muted/30 font-mono text-sm overflow-auto whitespace-pre-wrap">
-                      &gt;Sample_Peptide
                       KLCERIRGYKCPNRGYCT
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-biostruct-500 h-2 rounded-full w-full"></div>
-                      </div>
-                      <div className="text-sm text-muted-foreground">Structure predicted successfully!</div>
                     </div>
                   </div>
                 </div>
@@ -69,36 +60,23 @@ const DemoSection = () => {
             <Card className="border shadow-lg overflow-hidden p-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="text-xl font-semibold mb-4">Molecular Docking</h3>
+                  <h3 className="text-xl font-semibold mb-4">Sample Complex</h3>
                   <p className="text-muted-foreground mb-4">
-                    Screen compounds against your protein target to identify potential binding candidates.
+                    View this example of a protein-ligand complex.
                   </p>
                   
                   <div className="space-y-4 mt-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="font-medium mb-2">Sample Complex</h4>
-                        <div className="border rounded-md p-3 bg-muted/30 text-sm">
-                          <p>PDB ID: 1HVR</p>
-                          <p>HIV-1 Protease</p>
-                          <p>with Indinavir</p>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h4 className="font-medium mb-2">Binding Score</h4>
-                        <div className="border rounded-md p-3 bg-muted/30 text-sm">
-                          <p>Affinity: -12.4 kcal/mol</p>
-                          <p>Ki: 0.9 nM</p>
-                        </div>
-                      </div>
+                    <div className="border rounded-md p-3 bg-muted/30 text-sm">
+                      <p>PDB ID: 1AK4</p>
+                      <p>Beta-Trypsin Complex</p>
+                      <p>with Benzamidine</p>
                     </div>
                   </div>
                 </div>
                 
                 <div className="bg-black/5 rounded-lg overflow-hidden">
                   <MoleculeViewer 
-                    initialPdbId="1HVR"
+                    initialPdbId="1AK4"
                     initialStyle="licorice"
                     initialColor="chainname"
                   />
