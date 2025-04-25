@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,10 +17,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as NGL from "ngl";
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
 
-const MoleculeViewer = () => {
+interface MoleculeViewerProps {
+  initialPdbId?: string;
+  initialStyle?: string;
+  initialColor?: string;
+}
+
+const MoleculeViewer = ({ 
+  initialPdbId = "1crn",
+  initialStyle = "cartoon",
+  initialColor = "chainname"
+}: MoleculeViewerProps) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<any>(null);
-  const [pdbId, setPdbId] = useState("1crn");
+  const [pdbId, setPdbId] = useState(initialPdbId);
   const { toast } = useToast();
   
   // Structure prediction states
@@ -42,8 +51,8 @@ const MoleculeViewer = () => {
     const stage = new NGL.Stage(viewerRef.current, { backgroundColor: "white" });
     stageRef.current = stage;
 
-    // Load the protein structure
-    loadStructure(pdbId);
+    // Load the protein structure with initial style
+    loadStructure(initialPdbId);
 
     // Handle window resize
     const handleResize = () => {
@@ -55,7 +64,7 @@ const MoleculeViewer = () => {
       window.removeEventListener('resize', handleResize);
       stage.dispose();
     };
-  }, []);
+  }, [initialPdbId]);
 
   const loadStructure = async (id: string, pdbData?: string) => {
     if (!stageRef.current) return;
@@ -66,20 +75,18 @@ const MoleculeViewer = () => {
       
       let component;
       if (pdbData) {
-        // Load from provided PDB data string
         component = await stageRef.current.loadFile(
           new Blob([pdbData], {type: 'text/plain'}),
           { ext: 'pdb' }
         );
         setStructureSource("prediction");
       } else {
-        // Load from PDB ID
         component = await stageRef.current.loadFile(`rcsb://${id}`);
         setStructureSource("pdb");
       }
       
-      component.addRepresentation("cartoon", {
-        color: "chainname"
+      component.addRepresentation(initialStyle, {
+        color: initialColor
       });
       component.autoView();
       
