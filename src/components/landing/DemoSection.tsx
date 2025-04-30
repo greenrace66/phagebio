@@ -21,6 +21,7 @@ const DemoSection = () => {
             <TabsList>
               <TabsTrigger value="viewer">Molecular Viewer</TabsTrigger>
               <TabsTrigger value="docking">Molecular Docking</TabsTrigger>
+              <TabsTrigger value="prediction">Structure Prediction</TabsTrigger>
             </TabsList>
           </div>
           
@@ -43,18 +44,53 @@ const DemoSection = () => {
                   
                   <div className="space-y-4 mt-6">
                     <div className="border rounded-md p-3 bg-muted/30 text-sm">
-                      <p>PDB ID: 1AK4</p>
-                      <p>Beta-Trypsin Complex</p>
-                      <p>with Benzamidine</p>
+                      <p>PDB ID: 1L2Y</p>
+                      <p>Tryptophan Zipper</p>
+                      <p>Small Miniprotein</p>
                     </div>
                   </div>
                 </div>
                 
                 <div className="bg-black/5 rounded-lg overflow-hidden">
                   <MoleculeViewer 
-                    initialPdbId="1AK4"
+                    initialPdbId="1L2Y"
                     initialStyle="licorice"
                     initialColor="chainname"
+                  />
+                </div>
+              </div>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="prediction">
+            <Card className="border shadow-lg overflow-hidden p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-xl font-semibold mb-4">Structure Prediction</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Visualize predicted protein structures colored by pLDDT confidence scores.
+                  </p>
+                  
+                  <div className="space-y-4 mt-6">
+                    <div className="border rounded-md p-3 bg-muted/30 text-sm">
+                      <p>Sample predicted structure</p>
+                      <p>Colored by confidence (pLDDT)</p>
+                      <div className="mt-2 flex items-center">
+                        <div className="w-full h-2 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 rounded"></div>
+                      </div>
+                      <div className="flex justify-between text-xs mt-1">
+                        <span>Low confidence</span>
+                        <span>High confidence</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-black/5 rounded-lg overflow-hidden">
+                  <MoleculeViewer 
+                    initialPdbId="AF-P01308-F1"
+                    initialStyle="cartoon"
+                    initialColor="bfactor"
                   />
                 </div>
               </div>

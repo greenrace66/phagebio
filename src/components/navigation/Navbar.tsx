@@ -4,9 +4,12 @@ import {
   Database, 
   FileText, 
   Search, 
-  Settings 
+  Settings,
+  LogIn
 } from "lucide-react";
 import { useState } from "react";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { Link } from "react-router-dom";
 
 const Navbar = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -15,52 +18,59 @@ const Navbar = () => {
     <header className="border-b bg-background">
       <div className="container flex h-16 items-center justify-between px-4 md:px-8">
         <div className="flex items-center">
-          <a href="/" className="flex items-center">
+          <Link to="/" className="flex items-center">
             <div className="mr-3 relative w-8 h-8">
               <div className="absolute inset-0 bg-biostruct-500 rounded-full opacity-70 molecule-spinner"></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-6 h-6 bg-white rounded-full"></div>
+                <div className="w-6 h-6 bg-white dark:bg-black rounded-full"></div>
               </div>
             </div>
             <span className="text-xl font-bold text-gradient">BioStruct</span>
-          </a>
+          </Link>
 
           <nav className="hidden md:flex ml-8">
             <ul className="flex space-x-6">
               {isLoggedIn && (
                 <>
                   <li>
-                    <a href="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">
+                    <Link to="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">
                       Dashboard
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/projects" className="text-sm font-medium hover:text-primary transition-colors">
+                    <Link to="/projects" className="text-sm font-medium hover:text-primary transition-colors">
                       Projects
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/tools" className="text-sm font-medium hover:text-primary transition-colors">
+                    <Link to="/tools" className="text-sm font-medium hover:text-primary transition-colors">
                       Tools
-                    </a>
+                    </Link>
                   </li>
                 </>
               )}
               <li>
-                <a href="/about" className="text-sm font-medium hover:text-primary transition-colors">
+                <Link to="/about" className="text-sm font-medium hover:text-primary transition-colors">
                   About
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/pricing" className="text-sm font-medium hover:text-primary transition-colors">
+                <Link to="/pricing" className="text-sm font-medium hover:text-primary transition-colors">
                   Pricing
-                </a>
+                </Link>
+              </li>
+              <li>
+                <Link to="/models" className="text-sm font-medium hover:text-primary transition-colors">
+                  Models
+                </Link>
               </li>
             </ul>
           </nav>
         </div>
 
         <div className="flex items-center space-x-4">
+          <ThemeToggle />
+          
           {isLoggedIn ? (
             <>
               <Button variant="ghost" size="icon" className="text-muted-foreground">
@@ -81,12 +91,17 @@ const Navbar = () => {
             </>
           ) : (
             <>
-              <Button variant="ghost" onClick={() => setIsLoggedIn(true)}>
-                Log in
-              </Button>
-              <Button onClick={() => setIsLoggedIn(true)}>
-                Sign up
-              </Button>
+              <Link to="/login">
+                <Button variant="ghost">
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Log in
+                </Button>
+              </Link>
+              <Link to="/login?tab=signup">
+                <Button>
+                  Sign up
+                </Button>
+              </Link>
             </>
           )}
         </div>
