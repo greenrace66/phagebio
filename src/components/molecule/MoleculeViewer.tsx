@@ -1,3 +1,4 @@
+
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -231,65 +232,15 @@ const MoleculeViewer = ({
   return (
     <div className="flex flex-col h-full">
       <div className="bg-muted/30 border-b px-4 py-2 flex flex-wrap items-center justify-between gap-2">
-        <Tabs defaultValue="pdb" className="w-full max-w-md">
-          <TabsList className="grid grid-cols-2 mb-2">
-            <TabsTrigger value="pdb">PDB ID</TabsTrigger>
-            <TabsTrigger value="sequence">Sequence</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="pdb" className="mt-0">
-            <form onSubmit={handleSubmit} className="flex items-center gap-2">
-              <Input
-                value={pdbId}
-                onChange={(e) => setPdbId(e.target.value)}
-                placeholder="Enter PDB ID"
-                className="w-32"
-              />
-              <Button type="submit" variant="outline" size="sm">Load</Button>
-            </form>
-          </TabsContent>
-          
-          <TabsContent value="sequence" className="mt-0">
-            <form onSubmit={handlePrediction} className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="NVIDIA API Key"
-                  type="password"
-                  className="flex-1"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Textarea 
-                  value={sequence}
-                  onChange={(e) => setSequence(e.target.value)}
-                  placeholder="Enter protein sequence"
-                  className="h-20 flex-1 font-mono text-xs"
-                />
-                <Button 
-                  type="submit" 
-                  variant="outline" 
-                  size="sm"
-                  className="self-start"
-                  disabled={predicting}
-                >
-                  {predicting ? (
-                    <Loader className="h-4 w-4 animate-spin mr-2" />
-                  ) : null}
-                  Predict
-                </Button>
-              </div>
-              
-              {predicting && (
-                <div className="space-y-1">
-                  <Progress value={progress} className="h-1" />
-                  <p className="text-xs text-muted-foreground">Predicting structure...</p>
-                </div>
-              )}
-            </form>
-          </TabsContent>
-        </Tabs>
+        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+          <Input
+            value={pdbId}
+            onChange={(e) => setPdbId(e.target.value)}
+            placeholder="Enter PDB ID"
+            className="w-32"
+          />
+          <Button type="submit" variant="outline" size="sm">Load</Button>
+        </form>
         
         <div className="flex items-center space-x-2">
           <Select defaultValue="cartoon" onValueChange={handleStyleChange}>
@@ -342,106 +293,71 @@ const MoleculeViewer = ({
         </div>
         
         <div className="w-64 border-l flex-shrink-0 bg-background">
-          <Tabs defaultValue="info">
-            <TabsList className="w-full">
-              <TabsTrigger value="info" className="flex-1">Info</TabsTrigger>
-              <TabsTrigger value="analysis" className="flex-1">Analysis</TabsTrigger>
-            </TabsList>
-            <TabsContent value="info" className="p-4 text-sm">
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium mb-1">Protein Information</h4>
-                  <p className="text-muted-foreground">
-                    {structureSource === "prediction" 
-                      ? "Predicted Structure" 
-                      : "PDB Structure"}
-                  </p>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-1">Chains</h4>
-                  {structureSource === "prediction" ? (
-                    <p className="text-muted-foreground">Chain A (Predicted)</p>
-                  ) : (
-                    <>
-                      <p className="text-muted-foreground">Chain A: 250 residues</p>
-                      <p className="text-muted-foreground">Chain B: 230 residues</p>
-                    </>
-                  )}
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-1">
-                    {structureSource === "prediction" ? "Confidence" : "Resolution"}
-                  </h4>
-                  {structureSource === "prediction" ? (
-                    prediction.confidence ? (
-                      <p className="text-muted-foreground">
-                        {(prediction.confidence * 100).toFixed(1)}% estimated
-                      </p>
-                    ) : (
-                      <p className="text-muted-foreground">Not available</p>
-                    )
-                  ) : (
-                    <p className="text-muted-foreground">2.1 Å</p>
-                  )}
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-1">Source</h4>
-                  {structureSource === "prediction" ? (
-                    <div className="flex items-center text-muted-foreground">
-                      <FileText className="h-3 w-3 mr-1" />
-                      ESMFold Prediction
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">PDB ID: {pdbId}</p>
-                  )}
-                </div>
-                
-                {structureSource === "prediction" && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={downloadPrediction}
-                  >
-                    <Download className="w-4 h-4 mr-1" />
-                    Download Structure
-                  </Button>
+          <div className="p-4 text-sm">
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium mb-1">Protein Information</h4>
+                <p className="text-muted-foreground">
+                  {structureSource === "prediction" 
+                    ? "Predicted Structure" 
+                    : "PDB Structure"}
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-1">Chains</h4>
+                {structureSource === "prediction" ? (
+                  <p className="text-muted-foreground">Chain A (Predicted)</p>
+                ) : (
+                  <>
+                    <p className="text-muted-foreground">Chain A: 250 residues</p>
+                    <p className="text-muted-foreground">Chain B: 230 residues</p>
+                  </>
                 )}
               </div>
-            </TabsContent>
-            <TabsContent value="analysis" className="p-4 text-sm">
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium mb-1">Detected Pockets</h4>
-                  <p className="text-muted-foreground">3 potential binding sites found</p>
-                </div>
-                
-                <div className="space-y-1">
-                  <h4 className="font-medium">Pocket 1</h4>
-                  <p className="text-muted-foreground">Volume: 350 Å³</p>
-                  <p className="text-muted-foreground">Key residues: ARG45, GLU62, ASP78</p>
-                  <Button size="sm" variant="outline" className="mt-1 w-full">Highlight</Button>
-                </div>
-                
-                <div className="space-y-1">
-                  <h4 className="font-medium">Pocket 2</h4>
-                  <p className="text-muted-foreground">Volume: 280 Å³</p>
-                  <p className="text-muted-foreground">Key residues: TYR120, PHE124, LEU210</p>
-                  <Button size="sm" variant="outline" className="mt-1 w-full">Highlight</Button>
-                </div>
-                
-                <div className="space-y-1">
-                  <h4 className="font-medium">Pocket 3</h4>
-                  <p className="text-muted-foreground">Volume: 210 Å³</p>
-                  <p className="text-muted-foreground">Key residues: HIS33, SER56, ASP102</p>
-                  <Button size="sm" variant="outline" className="mt-1 w-full">Highlight</Button>
-                </div>
+              
+              <div>
+                <h4 className="font-medium mb-1">
+                  {structureSource === "prediction" ? "Confidence" : "Resolution"}
+                </h4>
+                {structureSource === "prediction" ? (
+                  prediction.confidence ? (
+                    <p className="text-muted-foreground">
+                      {(prediction.confidence * 100).toFixed(1)}% estimated
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">Not available</p>
+                  )
+                ) : (
+                  <p className="text-muted-foreground">2.1 Å</p>
+                )}
               </div>
-            </TabsContent>
-          </Tabs>
+              
+              <div>
+                <h4 className="font-medium mb-1">Source</h4>
+                {structureSource === "prediction" ? (
+                  <div className="flex items-center text-muted-foreground">
+                    <FileText className="h-3 w-3 mr-1" />
+                    ESMFold Prediction
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">PDB ID: {pdbId}</p>
+                )}
+              </div>
+              
+              {structureSource === "prediction" && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={downloadPrediction}
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Download Structure
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
