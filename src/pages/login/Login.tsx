@@ -124,7 +124,7 @@ const Login = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth-redirect`
+          redirectTo: `https://bio-struct-forge.lovable.app/`
         }
       });
 
