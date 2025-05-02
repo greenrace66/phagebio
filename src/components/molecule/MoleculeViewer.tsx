@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,12 +21,14 @@ interface MoleculeViewerProps {
   initialPdbId?: string;
   initialStyle?: string;
   initialColor?: string;
+  pdb?: string; // Add this new prop for direct PDB data
 }
 
 const MoleculeViewer = ({ 
   initialPdbId = "1crn",
   initialStyle = "cartoon",
-  initialColor = "chainname"
+  initialColor = "chainname",
+  pdb // Accept the pdb prop
 }: MoleculeViewerProps) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<any>(null);
@@ -52,8 +53,13 @@ const MoleculeViewer = ({
     const stage = new NGL.Stage(viewerRef.current, { backgroundColor: "white" });
     stageRef.current = stage;
 
-    // Load the protein structure with initial style
-    loadStructure(initialPdbId);
+    // If a direct PDB string is provided, use it instead of loading from PDB ID
+    if (pdb) {
+      loadStructure("", pdb);
+    } else {
+      // Otherwise load from the initial PDB ID
+      loadStructure(initialPdbId);
+    }
 
     // Handle window resize
     const handleResize = () => {
@@ -65,7 +71,7 @@ const MoleculeViewer = ({
       window.removeEventListener('resize', handleResize);
       stage.dispose();
     };
-  }, [initialPdbId]);
+  }, [initialPdbId, pdb]);
 
   const loadStructure = async (id: string, pdbData?: string) => {
     if (!stageRef.current) return;
@@ -186,9 +192,11 @@ const MoleculeViewer = ({
   
   // Download predicted structure
   const downloadPrediction = () => {
-    if (!prediction.pdbData) return;
+    // If direct pdb was provided, use that for download, otherwise use the prediction data
+    const pdbData = pdb || prediction.pdbData;
+    if (!pdbData) return;
     
-    const blob = new Blob([prediction.pdbData], { type: 'text/plain' });
+    const blob = new Blob([pdbData], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -271,7 +279,7 @@ const MoleculeViewer = ({
         <div className="flex items-center space-x-2">
           <Button variant="outline" size="sm" onClick={handleResetView}>Reset View</Button>
           <Button variant="outline" size="sm" onClick={() => stageRef.current?.makeImage()}>Take Screenshot</Button>
-          {prediction.pdbData && (
+          {(pdb || prediction.pdbData) && (
             <Button 
               variant="outline" 
               size="sm" 
@@ -345,7 +353,7 @@ const MoleculeViewer = ({
                 )}
               </div>
               
-              {structureSource === "prediction" && (
+              {(pdb || prediction.pdbData) && (
                 <Button 
                   variant="outline" 
                   size="sm" 
