@@ -1,3 +1,4 @@
+
 import { toast } from "@/hooks/use-toast";
 
 // ESMFold API endpoint
@@ -54,19 +55,20 @@ export const predictStructure = async (
       };
     }
 
-    // Call to ESMFold API
-    // Note: In a production app, this should be done via a Supabase Edge Function
-    // to keep the API key secure. For now, we're using a client-side approach
-    const response = await fetch(ESMFOLD_API_URL, {
+    // Call to ESMFold API - Updated to match the exact format provided
+    const options = {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         sequence: cleanedSeq
       })
-    });
+    };
+
+    const response = await fetch(ESMFOLD_API_URL, options);
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -82,9 +84,10 @@ export const predictStructure = async (
       data: data.pdb_string 
     };
   } catch (error) {
+    console.error("API Error:", error);
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : "Unknown error occurred" 
+      error: error instanceof Error ? error.message : "Failed to fetch. Please check your network connection or API key." 
     };
   }
 };
