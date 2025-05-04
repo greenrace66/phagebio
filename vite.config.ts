@@ -8,6 +8,14 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/api/esmfold': {
+        target: 'https://health.api.nvidia.com/v1/biology/nvidia/esmfold',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/esmfold/, ''),
+        secure: false,
+      }
+    }
   },
   plugins: [
     react(),

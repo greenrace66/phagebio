@@ -11,18 +11,18 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MoleculeViewer from "@/components/molecule/MoleculeViewer";
-import { ArrowLeft, Send, Download, Share, FileCode, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, Download, Share, FileCode, Loader2, FileText } from "lucide-react";
 import { predictStructure, validateSequence, cleanSequence } from "@/utils/proteinApi";
 
 const models = {
   esmfold: {
     name: "ESMFold",
-    description: "State-of-the-art protein structure prediction model powered by NVIDIA",
+    description: "Fastest protein structure prediction model",
     icon: <FileCode className="h-6 w-6 text-biostruct-500" />,
     tag: "Structure Prediction",
     apiEndpoint: "https://health.api.nvidia.com/v1/biology/nvidia/esmfold",
-    disclaimer: "ESMFold is a service provided by NVIDIA. Usage of this model requires an API key.",
-    exampleSequence: "MDILCEENTSLSSTTNSLMQLGDGPVQLTQVVEETQKLTWNDKETQSVQGPLLVEPAPGESQRPEIITPTAFTVTDTRKITSAVTVTPPPTAVETSDSRNSSVTTTPATLSAAPTTTTTRISAPTQTTQTTATPPATTTSAPIGSPASPPANISATTIFAGTIGAGGLTGVLGMGLATVTLILLRKRWNQCRALQDAFENLNKATSPLSTAQNRFEIKLSKFQNSLQKSFANLQKEFNNATPQLRSTVASAASAAPHIVGGPGGPVSGASVVNLTAGVGSGGRPSVFMDAAADAQRPGDVSARFHGDVLCDGIAGLGTVAMALPRAGVAPDIRHRGFVRVVASGRGSFVLEHHELARLTGVEPELDARLAAAAADRQAELERFMAGGLRGEALALRGDLAALRTELQAAQSSAQGVVTLARQVPDLEQVLSSLQGDAALSQAVRSLAGRAGRAMEPAPLLEAIVRRLSAATAVPDAGKDSAVVLQMAQALRDSLAPPIMGPSALTALPTPFGSDVVHPDRRTVFDQPPGHFRLELRGPGAAPVPPFSFQPPGSHRLSGG"
+    disclaimer: "ESMfold by Meta",
+    exampleSequence: "FVNQHLCGSHLVEALYLVCGERGFFYTPKA"
   }
 };
 
@@ -109,14 +109,17 @@ const ModelDetail = () => {
       const apiKey = "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";
       
       const result = await predictStructure(sequence, apiKey);
+      console.log('API Response:', result);
 
       clearInterval(progressInterval);
       setProgress(100);
       
       if (result.success) {
+        // Convert JSON response to PDB format if needed
+        const pdbString = result.json?.pdbs?.[0] || result.data;
         setResult({
-          pdbString: result.data,
-          json: { pdb_string: result.data?.substring(0, 100) + "..." } // Display truncated JSON for demo
+          pdbString: pdbString,
+          json: result.json
         });
         setActiveTab("view");
         toast({
@@ -307,12 +310,15 @@ const ModelDetail = () => {
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                       <TabsList className="w-full justify-start mb-4">
                         <TabsTrigger value="view">3D View</TabsTrigger>
-                        <TabsTrigger value="data">Raw Data</TabsTrigger>
+                        <TabsTrigger value="json">PDB Format</TabsTrigger>
                       </TabsList>
                       <TabsContent value="view">
                         <div className="h-[60vh] bg-black/5 dark:bg-white/5 rounded-md overflow-hidden">
-                          {result?.pdbString ? (
-                            <MoleculeViewer pdb={result.pdbString} />
+                          {result?.json?.pdbs?.[0] ? (
+                            (() => {
+                              console.log('PDB String:', result.json.pdbs[0]);
+                              return <MoleculeViewer pdb={result.json.pdbs[0]} />;
+                            })()
                           ) : (
                             <div className="flex items-center justify-center h-full">
                               <Skeleton className="h-full w-full" />
@@ -320,11 +326,11 @@ const ModelDetail = () => {
                           )}
                         </div>
                       </TabsContent>
-                      <TabsContent value="data">
-                        {result?.pdbString ? (
+                      <TabsContent value="json">
+                        {result?.json?.pdbs?.[0] ? (
                           <div className="h-[60vh] overflow-auto">
-                            <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs">
-                              {result.pdbString.substring(0, 2000)}...
+                            <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs font-mono">
+                              {result.json.pdbs[0]}
                             </pre>
                           </div>
                         ) : (

@@ -18,21 +18,16 @@ import * as NGL from "ngl";
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
 
 interface MoleculeViewerProps {
-  initialPdbId?: string;
   initialStyle?: string;
-  initialColor?: string;
-  pdb?: string; // Add this new prop for direct PDB data
+  pdb?: string;
 }
 
 const MoleculeViewer = ({ 
-  initialPdbId = "1crn",
   initialStyle = "cartoon",
-  initialColor = "chainname",
-  pdb // Accept the pdb prop
+  pdb
 }: MoleculeViewerProps) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<any>(null);
-  const [pdbId, setPdbId] = useState(initialPdbId);
   const { toast } = useToast();
   
   // Structure prediction states
@@ -45,6 +40,7 @@ const MoleculeViewer = ({
     pdbData: string | null;
     confidence: number | null;
   }>({ pdbData: null, confidence: null });
+  const [averageConfidence, setAverageConfidence] = useState<number | null>(null);
 
   useEffect(() => {
     if (!viewerRef.current) return;
@@ -53,12 +49,8 @@ const MoleculeViewer = ({
     const stage = new NGL.Stage(viewerRef.current, { backgroundColor: "white" });
     stageRef.current = stage;
 
-    // If a direct PDB string is provided, use it instead of loading from PDB ID
     if (pdb) {
-      loadStructure("", pdb);
-    } else {
-      // Otherwise load from the initial PDB ID
-      loadStructure(initialPdbId);
+      loadStructure(pdb);
     }
 
     // Handle window resize
@@ -71,37 +63,47 @@ const MoleculeViewer = ({
       window.removeEventListener('resize', handleResize);
       stage.dispose();
     };
-  }, [initialPdbId, pdb]);
+  }, [pdb]);
 
-  const loadStructure = async (id: string, pdbData?: string) => {
+  const calculateAverageConfidence = (component: any) => {
+    if (!component) return null;
+    
+    let totalBfactor = 0;
+    let atomCount = 0;
+    
+    component.structure.eachAtom((atom: any) => {
+      totalBfactor += atom.bfactor;
+      atomCount++;
+    });
+    
+    return atomCount > 0 ? totalBfactor / atomCount : null;
+  };
+
+  const loadStructure = async (pdbData: string) => {
     if (!stageRef.current) return;
     
     try {
       // Clear existing structures
       stageRef.current.removeAllComponents();
       
-      let component;
-      if (pdbData) {
-        component = await stageRef.current.loadFile(
-          new Blob([pdbData], {type: 'text/plain'}),
-          { ext: 'pdb' }
-        );
-        setStructureSource("prediction");
-      } else {
-        component = await stageRef.current.loadFile(`rcsb://${id}`);
-        setStructureSource("pdb");
-      }
+      const component = await stageRef.current.loadFile(
+        new Blob([pdbData], {type: 'text/plain'}),
+        { ext: 'pdb' }
+      );
+      
+      // Calculate average confidence
+      const avgConf = calculateAverageConfidence(component);
+      setAverageConfidence(avgConf);
       
       component.addRepresentation(initialStyle, {
-        color: initialColor
+        color: 'bfactor'
       });
       component.autoView();
       
+      setStructureSource("prediction");
       toast({
         title: "Structure loaded",
-        description: pdbData 
-          ? "Successfully loaded predicted structure" 
-          : `Successfully loaded PDB ID: ${id}`,
+        description: "Successfully loaded predicted structure",
       });
     } catch (error) {
       toast({
@@ -110,12 +112,6 @@ const MoleculeViewer = ({
         variant: "destructive",
       });
     }
-  };
-
-  // Handle PDB ID submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    loadStructure(pdbId);
   };
 
   // Handle protein sequence submission for structure prediction
@@ -164,7 +160,7 @@ const MoleculeViewer = ({
         });
         
         // Load the predicted structure
-        loadStructure("", result.data);
+        loadStructure(result.data);
         
         toast({
           title: "Prediction Complete",
@@ -192,7 +188,6 @@ const MoleculeViewer = ({
   
   // Download predicted structure
   const downloadPrediction = () => {
-    // If direct pdb was provided, use that for download, otherwise use the prediction data
     const pdbData = pdb || prediction.pdbData;
     if (!pdbData) return;
     
@@ -214,7 +209,7 @@ const MoleculeViewer = ({
 
     component.removeAllRepresentations();
     component.addRepresentation(style, {
-      color: stageRef.current.parameters.colorScheme
+      color: 'bfactor'
     });
   };
 
@@ -240,16 +235,6 @@ const MoleculeViewer = ({
   return (
     <div className="flex flex-col h-full">
       <div className="bg-muted/30 border-b px-4 py-2 flex flex-wrap items-center justify-between gap-2">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
-          <Input
-            value={pdbId}
-            onChange={(e) => setPdbId(e.target.value)}
-            placeholder="Enter PDB ID"
-            className="w-32"
-          />
-          <Button type="submit" variant="outline" size="sm">Load</Button>
-        </form>
-        
         <div className="flex items-center space-x-2">
           <Select defaultValue="cartoon" onValueChange={handleStyleChange}>
             <SelectTrigger className="w-32">
@@ -263,7 +248,7 @@ const MoleculeViewer = ({
             </SelectContent>
           </Select>
           
-          <Select defaultValue="chainname" onValueChange={handleColorChange}>
+          <Select defaultValue="bfactor" onValueChange={handleColorChange}>
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Color" />
             </SelectTrigger>
@@ -271,14 +256,13 @@ const MoleculeViewer = ({
               <SelectItem value="chainname">Chain</SelectItem>
               <SelectItem value="residueindex">Residue</SelectItem>
               <SelectItem value="atomindex">Atom</SelectItem>
-              <SelectItem value="bfactor">B-factor</SelectItem>
+              <SelectItem value="bfactor">pLDDT</SelectItem>
             </SelectContent>
           </Select>
         </div>
         
         <div className="flex items-center space-x-2">
           <Button variant="outline" size="sm" onClick={handleResetView}>Reset View</Button>
-          <Button variant="outline" size="sm" onClick={() => stageRef.current?.makeImage()}>Take Screenshot</Button>
           {(pdb || prediction.pdbData) && (
             <Button 
               variant="outline" 
@@ -313,31 +297,21 @@ const MoleculeViewer = ({
               </div>
               
               <div>
-                <h4 className="font-medium mb-1">Chains</h4>
-                {structureSource === "prediction" ? (
-                  <p className="text-muted-foreground">Chain A (Predicted)</p>
-                ) : (
-                  <>
-                    <p className="text-muted-foreground">Chain A: 250 residues</p>
-                    <p className="text-muted-foreground">Chain B: 230 residues</p>
-                  </>
-                )}
-              </div>
-              
-              <div>
-                <h4 className="font-medium mb-1">
-                  {structureSource === "prediction" ? "Confidence" : "Resolution"}
-                </h4>
-                {structureSource === "prediction" ? (
-                  prediction.confidence ? (
+                <h4 className="font-medium mb-1">Confidence</h4>
+                {averageConfidence !== null ? (
+                  <div className="space-y-2">
                     <p className="text-muted-foreground">
-                      {(prediction.confidence * 100).toFixed(1)}% estimated
+                      Average: {averageConfidence.toFixed(1)}
                     </p>
-                  ) : (
-                    <p className="text-muted-foreground">Not available</p>
-                  )
+                    <div className="h-4 w-full bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500 rounded-full" />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Low</span>
+                      <span>Medium</span>
+                      <span>High</span>
+                    </div>
+                  </div>
                 ) : (
-                  <p className="text-muted-foreground">2.1 Å</p>
+                  <p className="text-muted-foreground">Not available</p>
                 )}
               </div>
               
@@ -349,7 +323,7 @@ const MoleculeViewer = ({
                     ESMFold Prediction
                   </div>
                 ) : (
-                  <p className="text-muted-foreground">PDB ID: {pdbId}</p>
+                  <p className="text-muted-foreground">PDB Structure</p>
                 )}
               </div>
               

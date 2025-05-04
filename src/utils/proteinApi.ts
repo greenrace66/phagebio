@@ -1,8 +1,7 @@
-
 import { toast } from "@/hooks/use-toast";
 
 // ESMFold API endpoint
-const ESMFOLD_API_URL = "https://health.api.nvidia.com/v1/biology/nvidia/esmfold";
+const ESMFOLD_API_URL = "/api/esmfold";
 
 // Function to validate protein sequence (only allow valid amino acids)
 export const validateSequence = (sequence: string): boolean => {
@@ -30,7 +29,7 @@ export const cleanSequence = (sequence: string): string => {
 export const predictStructure = async (
   sequence: string,
   apiKey: string,
-): Promise<{ success: boolean; data?: string; error?: string }> => {
+): Promise<{ success: boolean; data?: string; error?: string; json?: any }> => {
   try {
     if (!validateSequence(sequence)) {
       return { 
@@ -51,7 +50,7 @@ export const predictStructure = async (
     if (cleanedSeq.length > 1000) {
       return { 
         success: false, 
-        error: "Sequence too long. Maximum length is 1000 amino acids for this demo." 
+        error: "Sequence too long. Maximum length is 1000 amino acids" 
       };
     }
 
@@ -81,13 +80,14 @@ export const predictStructure = async (
     const data = await response.json();
     return { 
       success: true, 
-      data: data.pdb_string 
+      data: data.pdb_string,
+      json: data // Include the raw response
     };
   } catch (error) {
-    console.error("API Error:", error);
+    console.error("Error:", error);
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : "Failed to fetch. Please check your network connection or API key." 
+      error: error instanceof Error ? error.message : "Failed to fetch. Please check your network connection" 
     };
   }
 };
