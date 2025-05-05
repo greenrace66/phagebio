@@ -31,6 +31,8 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          credits: number
+          credits_updated_at: string
           updated_at: string
         }
         Insert: {
@@ -39,6 +41,8 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          credits?: number
+          credits_updated_at?: string
           updated_at?: string
         }
         Update: {
@@ -47,7 +51,39 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          credits?: number
+          credits_updated_at?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      jobs: {
+        Row: {
+          id: number
+          user_id: string
+          model_id: string
+          input_sequence: string
+          status: string
+          created_at: string
+          result: string | null
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          model_id: string
+          input_sequence: string
+          status?: string
+          created_at?: string
+          result?: string | null
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          model_id?: string
+          input_sequence?: string
+          status?: string
+          created_at?: string
+          result?: string | null
         }
         Relationships: []
       }

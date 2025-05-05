@@ -1,17 +1,18 @@
-
 import { Button } from "@/components/ui/button";
 import { 
-  Database, 
+  Database as DatabaseIcon,
   FileText, 
   Search, 
   Settings,
   LogIn,
   LogOut
 } from "lucide-react";
+// import type { Database } from "@/integrations/supabase/types";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Avatar, 
   AvatarFallback, 
@@ -29,6 +30,7 @@ import {
 const Navbar = () => {
   const { user, signOut } = useAuth();
   const [initials, setInitials] = useState("");
+  const [credits, setCredits] = useState<number>(0);
   
   useEffect(() => {
     if (user?.user_metadata?.full_name) {
@@ -46,6 +48,30 @@ const Navbar = () => {
     } else if (user?.email) {
       setInitials(user.email.substring(0, 2).toUpperCase());
     }
+  }, [user]);
+
+  // Fetch and renew credits daily
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("credits, credits_updated_at")
+        .eq("id", user.id)
+        .single();
+      if (error || !profile) return console.error("Profile fetch error:", error);
+      const now = new Date();
+      const last = new Date(profile.credits_updated_at);
+      let currentCredits = profile.credits;
+      if (last.toDateString() !== now.toDateString()) {
+        await supabase
+          .from("profiles")
+          .update({ credits: 10, credits_updated_at: now.toISOString() })
+          .eq("id", user.id);
+        currentCredits = 10;
+      }
+      setCredits(currentCredits);
+    })();
   }, [user]);
   
   const handleSignOut = async () => {
@@ -68,30 +94,6 @@ const Navbar = () => {
 
           <nav className="hidden md:flex ml-8">
             <ul className="flex space-x-6">
-              {user && (
-                <>
-                  <li>
-                    <Link to="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">
-                      Dashboard
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/projects" className="text-sm font-medium hover:text-primary transition-colors">
-                      Projects
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/tools" className="text-sm font-medium hover:text-primary transition-colors">
-                      Tools
-                    </Link>
-                  </li>
-                </>
-              )}
-              <li>
-                <Link to="/about" className="text-sm font-medium hover:text-primary transition-colors">
-                  About
-                </Link>
-              </li>
               <li>
                 <Link to="/pricing" className="text-sm font-medium hover:text-primary transition-colors">
                   Pricing
@@ -102,11 +104,17 @@ const Navbar = () => {
                   Models
                 </Link>
               </li>
+              <li>
+                <Link to="/jobs" className="text-sm font-medium hover:text-primary transition-colors">
+                  Jobs
+                </Link>
+              </li>
             </ul>
           </nav>
         </div>
 
         <div className="flex items-center space-x-4">
+          <div className="text-sm font-medium">Credits: {credits}</div>
           <ThemeToggle />
           
           {user ? (
@@ -118,7 +126,7 @@ const Navbar = () => {
                 <FileText className="h-5 w-5" />
               </Button>
               <Button variant="ghost" size="icon" className="text-muted-foreground">
-                <Database className="h-5 w-5" />
+                <DatabaseIcon className="h-5 w-5" />
               </Button>
               <Button variant="ghost" size="icon" className="text-muted-foreground">
                 <Settings className="h-5 w-5" />

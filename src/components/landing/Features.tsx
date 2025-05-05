@@ -1,4 +1,3 @@
-
 import { 
   Book, 
   FileText, 
@@ -58,7 +57,7 @@ const Features = () => {
           ))}
         </div>
         
-        <div className="mt-16 max-w-3xl mx-auto bg-gradient-to-r from-biostruct-50 to-molecular-50 p-8 rounded-2xl">
+        <div className="mt-16 max-w-3xl mx-auto bg-gradient-to-r from-biostruct-50 to-molecular-50 dark:from-biostruct-800 dark:to-molecular-800 p-8 rounded-2xl">
           <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
             <div className="flex-1 space-y-4">
               <h3 className="text-2xl font-bold">Ready for your research?</h3>
@@ -68,15 +67,15 @@ const Features = () => {
               <ul className="space-y-2 text-left">
                 <li className="flex items-center gap-2">
                   <Check className="h-5 w-5 text-molecular-600" />
-                  <span>5 structure predictions per month</span>
+                  <span>100 credits per month</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-5 w-5 text-molecular-600" />
-                  <span>Basic pocket detection</span>
+                  <span>Access to all models</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-5 w-5 text-molecular-600" />
-                  <span>Limited molecular docking</span>
+                  <span>Unlimited Demo Usage</span>
                 </li>
               </ul>
             </div>

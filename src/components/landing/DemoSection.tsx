@@ -1,5 +1,4 @@
-
-import MoleculeViewer from "@/components/molecule/MoleculeViewer";
+import DemoMoleculeViewer from "@/components/molecule/DemoMoleculeViewer";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
@@ -28,7 +27,7 @@ const DemoSection = () => {
           <TabsContent value="viewer">
             <Card className="border shadow-lg overflow-hidden">
               <div className="h-[500px]">
-                <MoleculeViewer />
+                <DemoMoleculeViewer initialPdbId="1CRN" />
               </div>
             </Card>
           </TabsContent>
@@ -38,24 +37,19 @@ const DemoSection = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-xl font-semibold mb-4">Sample Complex</h3>
-                  <p className="text-muted-foreground mb-4">
-                    View this example of a protein-ligand complex.
-                  </p>
-                  
                   <div className="space-y-4 mt-6">
                     <div className="border rounded-md p-3 bg-muted/30 text-sm">
-                      <p>PDB ID: 1L2Y</p>
-                      <p>Tryptophan Zipper</p>
-                      <p>Small Miniprotein</p>
+                      <p>PDB ID: 1YVB</p>
                     </div>
                   </div>
                 </div>
                 
                 <div className="bg-black/5 rounded-lg overflow-hidden">
-                  <MoleculeViewer 
-                    initialPdbId="1L2Y"
-                    initialStyle="licorice"
+                  <DemoMoleculeViewer
+                    initialPdbId="1YVB"
+                    initialStyle="Cartoon"
                     initialColor="chainname"
+                    focusLigand
                   />
                 </div>
               </div>
@@ -87,7 +81,7 @@ const DemoSection = () => {
                 </div>
                 
                 <div className="bg-black/5 rounded-lg overflow-hidden">
-                  <MoleculeViewer 
+                  <DemoMoleculeViewer 
                     initialPdbId="AF-P01308-F1"
                     initialStyle="cartoon"
                     initialColor="bfactor"

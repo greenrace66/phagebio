@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/navigation/Navbar";
 import Footer from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MoleculeViewer from "@/components/molecule/MoleculeViewer";
 import { ArrowLeft, Send, Download, Share, FileCode, Loader2, FileText } from "lucide-react";
 import { predictStructure, validateSequence, cleanSequence } from "@/utils/proteinApi";
+import { supabase } from "@/integrations/supabase/client";
 
 const models = {
   esmfold: {
@@ -21,7 +23,7 @@ const models = {
     icon: <FileCode className="h-6 w-6 text-biostruct-500" />,
     tag: "Structure Prediction",
     apiEndpoint: "https://health.api.nvidia.com/v1/biology/nvidia/esmfold",
-    disclaimer: "ESMfold by Meta",
+    disclaimer: "COST : 1 credit",
     exampleSequence: "FVNQHLCGSHLVEALYLVCGERGFFYTPKA"
   }
 };
@@ -30,6 +32,9 @@ const ModelDetail = () => {
   const { modelId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const jobId = searchParams.get("job");
   const [sequence, setSequence] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -39,6 +44,23 @@ const ModelDetail = () => {
     error?: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState("view");
+
+  // Load job parameters if jobId present
+  useEffect(() => {
+    if (!jobId || !user) return;
+    supabase
+      .from("jobs")
+      .select("*")
+      .eq("id", Number(jobId))
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setSequence(data.input_sequence);
+          setResult({ pdbString: data.result || undefined });
+          setActiveTab("view");
+        }
+      });
+  }, [jobId, user]);
 
   // Check if the model exists
   const model = modelId ? models[modelId as keyof typeof models] : null;
@@ -73,6 +95,12 @@ const ModelDetail = () => {
   };
 
   const handleSubmit = async () => {
+    if (!user) {
+      toast({ title: "Authentication Required", description: "Please sign in to predict structure.", variant: "destructive" });
+      navigate("/login");
+      return;
+    }
+
     if (!sequence.trim()) {
       toast({
         title: "Empty Sequence",
@@ -90,6 +118,27 @@ const ModelDetail = () => {
       });
       return;
     }
+
+    // Check and deduct credits (1 per prediction)
+    const { data: profile, error: credErr } = await supabase
+      .from("profiles")
+      .select("credits")
+      .eq("id", user.id)
+      .single();
+    if (credErr || !profile) {
+      console.error("Error fetching credits:", credErr);
+      toast({ title: "Error", description: "Could not verify credits.", variant: "destructive" });
+      return;
+    }
+    if (profile.credits < 1) {
+      toast({ title: "No Credits Left", description: "You have exhausted your daily credits. Please wait until tomorrow.", variant: "destructive" });
+      return;
+    }
+    // Deduct one credit
+    await supabase
+      .from("profiles")
+      .update({ credits: profile.credits - 1 })
+      .eq("id", user.id);
 
     setIsLoading(true);
     setProgress(0);
@@ -126,6 +175,15 @@ const ModelDetail = () => {
           title: "Success",
           description: "Structure prediction completed successfully!",
         });
+        // Save job record
+        const { error: insertError } = await supabase.from("jobs").insert({
+          user_id: user.id,
+          model_id: modelId!,
+          input_sequence: sequence,
+          status: "success",
+          result: pdbString
+        });
+        if (insertError) console.error("Job insert error:", insertError);
       } else {
         setResult({ error: result.error });
         toast({
@@ -133,6 +191,15 @@ const ModelDetail = () => {
           description: result.error || "An error occurred during prediction.",
           variant: "destructive",
         });
+        // Save failed job
+        const { error: insertError } = await supabase.from("jobs").insert({
+          user_id: user.id,
+          model_id: modelId!,
+          input_sequence: sequence,
+          status: "failed",
+          result: result.error
+        });
+        if (insertError) console.error("Failed job insert error:", insertError);
       }
     } catch (error) {
       clearInterval(progressInterval);
@@ -314,11 +381,8 @@ const ModelDetail = () => {
                       </TabsList>
                       <TabsContent value="view">
                         <div className="h-[60vh] bg-black/5 dark:bg-white/5 rounded-md overflow-hidden">
-                          {result?.json?.pdbs?.[0] ? (
-                            (() => {
-                              console.log('PDB String:', result.json.pdbs[0]);
-                              return <MoleculeViewer pdb={result.json.pdbs[0]} />;
-                            })()
+                          {(result?.json?.pdbs?.[0] || result?.pdbString) ? (
+                            <MoleculeViewer pdb={result.json?.pdbs?.[0] || result.pdbString!} />
                           ) : (
                             <div className="flex items-center justify-center h-full">
                               <Skeleton className="h-full w-full" />
@@ -327,10 +391,10 @@ const ModelDetail = () => {
                         </div>
                       </TabsContent>
                       <TabsContent value="json">
-                        {result?.json?.pdbs?.[0] ? (
+                        {(result?.json?.pdbs?.[0] || result?.pdbString) ? (
                           <div className="h-[60vh] overflow-auto">
                             <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs font-mono">
-                              {result.json.pdbs[0]}
+                              {result.json?.pdbs?.[0] || result.pdbString}
                             </pre>
                           </div>
                         ) : (

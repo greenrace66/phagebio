@@ -27,7 +27,7 @@ const PricingPage = () => {
               </div>
               <div className="text-3xl font-bold">$0</div>
               <ul className="space-y-2 text-muted-foreground">
-                <li>$5 Free Credits</li>
+                <li>10 Free Credits everyday</li>
                 <li>Access to All Tools</li>
                 <li>Basic Support</li>
               </ul>
@@ -41,8 +41,8 @@ const PricingPage = () => {
               <div className="text-3xl font-bold">Coming Soon</div>
               <ul className="space-y-2 text-muted-foreground">
                 <li>Advanced Features</li>
+                <li>Pay As You Go</li>
                 <li>Priority Support</li>
-                <li>Custom Solutions</li>
               </ul>
             </Card>
           </div>
