@@ -17,7 +17,7 @@ const ModelsPage = () => {
       id: "esmfold",
       name: "ESMFold",
       description: "State-of-the-art protein structure prediction model powered by NVIDIA",
-      icon: <FileCode className="h-5 w-5 md:h-6 md:w-6 text-biostruct-500" />,
+      icon: <FileCode className="h-6 w-6 text-biostruct-500" />,
       tag: "Structure Prediction",
       input: "Protein sequence",
       output: "3D structure",
@@ -27,7 +27,7 @@ const ModelsPage = () => {
       id: "alphafold",
       name: "AlphaFold",
       description: "DeepMind's revolutionary protein structure prediction system",
-      icon: <Dna className="h-5 w-5 md:h-6 md:w-6 text-molecular-500" />,
+      icon: <Dna className="h-6 w-6 text-molecular-500" />,
       tag: "Structure Prediction",
       input: "Protein sequence",
       output: "3D structure with confidence scores",
@@ -43,22 +43,22 @@ const ModelsPage = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1 py-8 md:py-16">
+      <main className="flex-1 py-16">
         <div className="container px-4 md:px-6">
-          <div className="flex flex-col items-center text-center space-y-4 mb-8 md:mb-12">
-            <h1 className="text-2xl font-bold tracking-tight md:text-4xl">
+          <div className="flex flex-col items-center text-center space-y-4 mb-12">
+            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
               Available Models
             </h1>
-            <p className="max-w-[600px] text-muted-foreground text-base md:text-lg">
+            <p className="max-w-[600px] text-muted-foreground text-lg">
               Explore our collection of state-of-the-art models
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 max-w-7xl mx-auto sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
             {models.map((model) => (
               <Card 
                 key={model.id}
-                className={`p-4 md:p-6 transition-all duration-200 ${
+                className={`p-6 transition-all duration-200 ${
                   model.disabled 
                     ? "opacity-50 cursor-not-allowed" 
                     : "hover:shadow-lg transform hover:-translate-y-1 cursor-pointer"
@@ -77,39 +77,39 @@ const ModelsPage = () => {
                   )}
                   
                   <div className="flex items-center space-x-3 mb-4">
-                    <div className="bg-muted rounded-full p-2 md:p-3">
+                    <div className="bg-muted rounded-full p-3">
                       {model.icon}
                     </div>
                     <div>
-                      <h2 className="text-lg md:text-xl font-bold">{model.name}</h2>
-                      <Badge variant="secondary" className="mt-1 text-xs">
+                      <h2 className="text-xl font-bold">{model.name}</h2>
+                      <Badge variant="secondary" className="mt-1">
                         {model.tag}
                       </Badge>
                     </div>
                   </div>
                   
-                  <p className="text-muted-foreground text-sm line-clamp-3 mb-4">
+                  <p className="text-muted-foreground line-clamp-3 mb-4">
                     {model.description}
                   </p>
                   
                   <div className="space-y-3">
-                    <div className="grid grid-cols-3 gap-1 md:gap-2">
-                      <span className="text-xs md:text-sm font-medium">Input:</span>
-                      <span className="text-xs md:text-sm text-muted-foreground col-span-2">{model.input}</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="text-sm font-medium">Input:</span>
+                      <span className="text-sm text-muted-foreground col-span-2">{model.input}</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-1 md:gap-2">
-                      <span className="text-xs md:text-sm font-medium">Output:</span>
-                      <span className="text-xs md:text-sm text-muted-foreground col-span-2">{model.output}</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="text-sm font-medium">Output:</span>
+                      <span className="text-sm text-muted-foreground col-span-2">{model.output}</span>
                     </div>
                   </div>
                   
                   {!model.disabled && (
                     <Button 
-                      className="w-full mt-4 md:mt-6 group text-sm"
+                      className="w-full mt-6 group"
                       variant="default"
                     >
                       Try Model
-                      <ArrowRight className="ml-2 h-3 w-3 md:h-4 md:w-4 transition-transform group-hover:translate-x-1" />
+                      <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Button>
                   )}
                 </div>

@@ -24,74 +24,66 @@ export type Database = {
         }
         Relationships: []
       }
-      jobs: {
-        Row: {
-          created_at: string
-          id: number
-          input_sequence: string
-          model_id: string
-          result: string | null
-          status: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-          input_sequence: string
-          model_id: string
-          result?: string | null
-          status: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: number
-          input_sequence?: string
-          model_id?: string
-          result?: string | null
-          status?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "jobs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
-          credits: number
-          credits_updated_at: string
           email: string | null
           full_name: string | null
           id: string
+          credits: number
+          credits_updated_at: string
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
-          credits?: number
-          credits_updated_at?: string
           email?: string | null
           full_name?: string | null
           id: string
+          credits?: number
+          credits_updated_at?: string
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
-          credits?: number
-          credits_updated_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
+          credits?: number
+          credits_updated_at?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      jobs: {
+        Row: {
+          id: number
+          user_id: string
+          model_id: string
+          input_sequence: string
+          status: string
+          created_at: string
+          result: string | null
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          model_id: string
+          input_sequence: string
+          status?: string
+          created_at?: string
+          result?: string | null
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          model_id?: string
+          input_sequence?: string
+          status?: string
+          created_at?: string
+          result?: string | null
         }
         Relationships: []
       }

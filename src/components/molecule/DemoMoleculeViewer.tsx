@@ -1,13 +1,11 @@
-
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, FileText, Loader } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Select,
   SelectContent,
@@ -24,7 +22,6 @@ interface MoleculeViewerProps {
   initialStyle?: string;
   initialColor?: string;
   focusLigand?: boolean;
-  hideInfoOnMobile?: boolean;
 }
 
 const MoleculeViewer = ({ 
@@ -32,13 +29,11 @@ const MoleculeViewer = ({
   initialStyle = "cartoon",
   initialColor = "chainname",
   focusLigand = false,
-  hideInfoOnMobile = false,
 }: MoleculeViewerProps) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<any>(null);
   const [pdbId, setPdbId] = useState(initialPdbId);
   const { toast } = useToast();
-  const isMobile = useIsMobile();
   
   // Structure prediction states
   const [sequence, setSequence] = useState("");
@@ -92,15 +87,13 @@ const MoleculeViewer = ({
         setStructureSource("pdb");
       }
       
-      if (component) {
-        component.addRepresentation(initialStyle, { color: initialColor });
-        if (focusLigand && component) {
-          // Highlight ligand atoms only
-          component.addRepresentation('ball+stick', { sele: 'hetero' });
-          component.autoView('hetero');
-        } else if (component) {
-          component.autoView();
-        }
+      component.addRepresentation(initialStyle, { color: initialColor });
+      if (focusLigand) {
+        // Highlight ligand atoms only
+        component.addRepresentation('ball+stick', { sele: 'hetero' });
+        component.autoView('hetero');
+      } else {
+        component.autoView();
       }
       
       toast({
@@ -312,81 +305,78 @@ const MoleculeViewer = ({
           />
         </div>
         
-        {/* Hide info sidebar on mobile if hideInfoOnMobile prop is true */}
-        {!(isMobile && hideInfoOnMobile) && (
-          <div className="w-64 border-l flex-shrink-0 bg-background">
-            <Tabs defaultValue="info">
-              <TabsList className="w-full">
-                <TabsTrigger value="info" className="flex-1">Info</TabsTrigger>
-              </TabsList>
-              <TabsContent value="info" className="p-4 text-sm">
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-medium mb-1">Protein Information</h4>
-                    <p className="text-muted-foreground">
-                      {structureSource === "prediction" 
-                        ? "Predicted Structure" 
-                        : "PDB Structure"}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium mb-1">Chains</h4>
-                    {structureSource === "prediction" ? (
-                      <p className="text-muted-foreground">Chain A (Predicted)</p>
-                    ) : (
-                      <>
-                        <p className="text-muted-foreground">Chain A: 250 residues</p>
-                        <p className="text-muted-foreground">Chain B: 230 residues</p>
-                      </>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium mb-1">
-                      {structureSource === "prediction" ? "Confidence" : "Resolution"}
-                    </h4>
-                    {structureSource === "prediction" ? (
-                      prediction.confidence ? (
-                        <p className="text-muted-foreground">
-                          {(prediction.confidence * 100).toFixed(1)}% estimated
-                        </p>
-                      ) : (
-                        <p className="text-muted-foreground">Not available</p>
-                      )
-                    ) : (
-                      <p className="text-muted-foreground">2.1 Å</p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium mb-1">Source</h4>
-                    {structureSource === "prediction" ? (
-                      <div className="flex items-center text-muted-foreground">
-                        <FileText className="h-3 w-3 mr-1" />
-                        ESMFold Prediction
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground">PDB ID: {pdbId}</p>
-                    )}
-                  </div>
-                  
-                  {structureSource === "prediction" && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full"
-                      onClick={downloadPrediction}
-                    >
-                      <Download className="w-4 h-4 mr-1" />
-                      Download Structure
-                    </Button>
+        <div className="w-64 border-l flex-shrink-0 bg-background">
+          <Tabs defaultValue="info">
+            <TabsList className="w-full">
+              <TabsTrigger value="info" className="flex-1">Info</TabsTrigger>
+            </TabsList>
+            <TabsContent value="info" className="p-4 text-sm">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium mb-1">Protein Information</h4>
+                  <p className="text-muted-foreground">
+                    {structureSource === "prediction" 
+                      ? "Predicted Structure" 
+                      : "PDB Structure"}
+                  </p>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-1">Chains</h4>
+                  {structureSource === "prediction" ? (
+                    <p className="text-muted-foreground">Chain A (Predicted)</p>
+                  ) : (
+                    <>
+                      <p className="text-muted-foreground">Chain A: 250 residues</p>
+                      <p className="text-muted-foreground">Chain B: 230 residues</p>
+                    </>
                   )}
                 </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        )}
+                
+                <div>
+                  <h4 className="font-medium mb-1">
+                    {structureSource === "prediction" ? "Confidence" : "Resolution"}
+                  </h4>
+                  {structureSource === "prediction" ? (
+                    prediction.confidence ? (
+                      <p className="text-muted-foreground">
+                        {(prediction.confidence * 100).toFixed(1)}% estimated
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground">Not available</p>
+                    )
+                  ) : (
+                    <p className="text-muted-foreground">2.1 Å</p>
+                  )}
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-1">Source</h4>
+                  {structureSource === "prediction" ? (
+                    <div className="flex items-center text-muted-foreground">
+                      <FileText className="h-3 w-3 mr-1" />
+                      ESMFold Prediction
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">PDB ID: {pdbId}</p>
+                  )}
+                </div>
+                
+                {structureSource === "prediction" && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={downloadPrediction}
+                  >
+                    <Download className="w-4 h-4 mr-1" />
+                    Download Structure
+                  </Button>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );

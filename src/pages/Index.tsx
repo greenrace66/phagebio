@@ -1,5 +1,4 @@
 
-import { useIsMobile } from "@/hooks/use-mobile";
 import Navbar from "@/components/navigation/Navbar";
 import Hero from "@/components/landing/Hero";
 import Features from "@/components/landing/Features";
