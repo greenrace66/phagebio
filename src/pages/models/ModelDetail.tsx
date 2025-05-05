@@ -1,424 +1,384 @@
+
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-import Navbar from "@/components/navigation/Navbar";
-import Footer from "@/components/landing/Footer";
+import { useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import MoleculeViewer from "@/components/molecule/MoleculeViewer";
-import { ArrowLeft, Send, Download, Share, FileCode, Loader2, FileText } from "lucide-react";
-import { predictStructure, validateSequence, cleanSequence } from "@/utils/proteinApi";
+import { Share2, Download, Copy, Check } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import Navbar from "@/components/navigation/Navbar";
+import Footer from "@/components/landing/Footer";
+import MoleculeViewer from "@/components/molecule/MoleculeViewer";
+import { predictProteinStructure } from "@/utils/proteinApi";
 
-const models = {
-  esmfold: {
+interface ModelInfo {
+  name: string;
+  description: string;
+  input: string;
+  output: string;
+  tag: string;
+}
+
+const DEFAULT_SEQUENCE = "FVNQHLCGSHLVEALYLVCGERGFFYTPKA";
+
+const MODELS: Record<string, ModelInfo> = {
+  "esmfold": {
     name: "ESMFold",
-    description: "Fastest protein structure prediction model",
-    icon: <FileCode className="h-6 w-6 text-biostruct-500" />,
+    description: "State-of-the-art protein structure prediction model powered by NVIDIA",
+    input: "Protein sequence",
+    output: "3D structure",
     tag: "Structure Prediction",
-    apiEndpoint: "https://health.api.nvidia.com/v1/biology/nvidia/esmfold",
-    disclaimer: "COST : 1 credit",
-    exampleSequence: "FVNQHLCGSHLVEALYLVCGERGFFYTPKA"
   }
 };
 
+interface Job {
+  id: number;
+  input_sequence: string;
+  result: string;
+  status: string;
+}
+
 const ModelDetail = () => {
-  const { modelId } = useParams();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const { user } = useAuth();
+  const { modelId } = useParams<{ modelId: string }>();
   const [searchParams] = useSearchParams();
   const jobId = searchParams.get("job");
-  const [sequence, setSequence] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<{
-    pdbString?: string;
-    json?: any;
-    error?: string;
-  } | null>(null);
-  const [activeTab, setActiveTab] = useState("view");
-
-  // Load job parameters if jobId present
+  
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  const [sequence, setSequence] = useState(DEFAULT_SEQUENCE);
+  const [jobData, setJobData] = useState<Job | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [pdbData, setPdbData] = useState<string | null>(null);
+  const [copiedToClipboard, setCopiedToClipboard] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  
+  const modelInfo = modelId ? MODELS[modelId] : undefined;
+  
+  // Fetch job data if job ID is provided
   useEffect(() => {
-    if (!jobId || !user) return;
-    supabase
-      .from("jobs")
-      .select("*")
-      .eq("id", Number(jobId))
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setSequence(data.input_sequence);
-          setResult({ pdbString: data.result || undefined });
-          setActiveTab("view");
-        }
-      });
-  }, [jobId, user]);
-
-  // Check if the model exists
-  const model = modelId ? models[modelId as keyof typeof models] : null;
-
-  if (!model) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <div className="flex-1 container flex flex-col items-center justify-center">
-          <h1 className="text-2xl font-bold mb-4">Model Not Found</h1>
-          <p className="mb-6 text-muted-foreground">The model you're looking for doesn't exist or is not available.</p>
-          <Button onClick={() => navigate("/models")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Models
-          </Button>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setSequence(e.target.value);
-  };
-
-  const handleLoadExample = () => {
-    setSequence(model.exampleSequence);
-    toast({
-      title: "Example Loaded",
-      description: "An example protein sequence has been loaded.",
-    });
-  };
-
-  const handleSubmit = async () => {
-    if (!user) {
-      toast({ title: "Authentication Required", description: "Please sign in to predict structure.", variant: "destructive" });
-      navigate("/login");
-      return;
+    if (jobId && user) {
+      supabase
+        .from("jobs")
+        .select("*")
+        .eq("id", jobId)
+        .eq("user_id", user.id)
+        .single()
+        .then(({ data, error }) => {
+          if (error) {
+            console.error(error);
+            toast({
+              title: "Error fetching job",
+              description: "Could not load the job details",
+              variant: "destructive",
+            });
+          } else if (data) {
+            setJobData(data as Job);
+            setSequence(data.input_sequence);
+            if (data.result && data.status === "completed") {
+              setPdbData(data.result);
+            }
+          }
+        });
     }
-
+  }, [jobId, user, toast]);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (!sequence.trim()) {
-      toast({
-        title: "Empty Sequence",
-        description: "Please enter a protein sequence.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!validateSequence(sequence)) {
-      toast({
-        title: "Invalid Sequence",
-        description: "Please enter a valid protein sequence containing only amino acid letters.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check and deduct credits (1 per prediction)
-    const { data: profile, error: credErr } = await supabase
-      .from("profiles")
-      .select("credits")
-      .eq("id", user.id)
-      .single();
-    if (credErr || !profile) {
-      console.error("Error fetching credits:", credErr);
-      toast({ title: "Error", description: "Could not verify credits.", variant: "destructive" });
-      return;
-    }
-    if (profile.credits < 1) {
-      toast({ title: "No Credits Left", description: "You have exhausted your daily credits. Please wait until tomorrow.", variant: "destructive" });
-      return;
-    }
-    // Deduct one credit
-    await supabase
-      .from("profiles")
-      .update({ credits: profile.credits - 1 })
-      .eq("id", user.id);
-
-    setIsLoading(true);
-    setProgress(0);
-    setResult(null);
-
-    // Progress simulation
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        const newProgress = prev + Math.random() * 10;
-        return newProgress >= 90 ? 90 : newProgress;
-      });
-    }, 800);
-
-    try {
-      // For demo purposes, we're using a demo API key
-      // In a production app, this should come from environment variables or user input
-      const apiKey = "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";
-      
-      const result = await predictStructure(sequence, apiKey);
-      console.log('API Response:', result);
-
-      clearInterval(progressInterval);
-      setProgress(100);
-      
-      if (result.success) {
-        // Convert JSON response to PDB format if needed
-        const pdbString = result.json?.pdbs?.[0] || result.data;
-        setResult({
-          pdbString: pdbString,
-          json: result.json
-        });
-        setActiveTab("view");
-        toast({
-          title: "Success",
-          description: "Structure prediction completed successfully!",
-        });
-        // Save job record
-        const { error: insertError } = await supabase.from("jobs").insert({
-          user_id: user.id,
-          model_id: modelId!,
-          input_sequence: sequence,
-          status: "success",
-          result: pdbString
-        });
-        if (insertError) console.error("Job insert error:", insertError);
-      } else {
-        setResult({ error: result.error });
-        toast({
-          title: "Prediction Failed",
-          description: result.error || "An error occurred during prediction.",
-          variant: "destructive",
-        });
-        // Save failed job
-        const { error: insertError } = await supabase.from("jobs").insert({
-          user_id: user.id,
-          model_id: modelId!,
-          input_sequence: sequence,
-          status: "failed",
-          result: result.error
-        });
-        if (insertError) console.error("Failed job insert error:", insertError);
-      }
-    } catch (error) {
-      clearInterval(progressInterval);
-      setProgress(0);
-      setResult({ error: error instanceof Error ? error.message : "Unknown error occurred" });
+      setErrorMessage("Protein sequence is required");
       toast({
         title: "Error",
-        description: "Failed to connect to the prediction service.",
+        description: "Please enter a protein sequence",
         variant: "destructive",
       });
+      return;
+    }
+    
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to submit a prediction",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setLoading(true);
+    setErrorMessage("");
+    
+    try {
+      // Create job record first
+      const { data: jobRecord, error: jobError } = await supabase
+        .from("jobs")
+        .insert({
+          user_id: user.id,
+          model_id: modelId,
+          input_sequence: sequence,
+          status: "pending",
+        })
+        .select();
+      
+      if (jobError) throw new Error(jobError.message);
+      
+      const newJobId = jobRecord[0].id;
+      
+      // Call prediction API
+      const result = await predictProteinStructure(sequence);
+      
+      if (!result.ok) {
+        throw new Error(result.error || "Failed to predict structure");
+      }
+      
+      // Update job with result
+      await supabase
+        .from("jobs")
+        .update({
+          status: "completed",
+          result: result.data,
+        })
+        .eq("id", newJobId);
+      
+      setPdbData(result.data);
+      
+      toast({
+        title: "Success",
+        description: "Protein structure prediction completed",
+      });
+      
+      // Refresh job data
+      setJobData({
+        id: newJobId,
+        input_sequence: sequence,
+        result: result.data,
+        status: "completed",
+      } as Job);
+      
+    } catch (error) {
+      console.error("Prediction error:", error);
+      const message = error instanceof Error ? error.message : "Unknown error occurred";
+      setErrorMessage(message);
+      toast({
+        title: "Prediction Failed",
+        description: message,
+        variant: "destructive",
+      });
+      
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-
+  
   const handleDownload = () => {
-    if (!result?.pdbString) return;
+    if (!pdbData) return;
     
-    const blob = new Blob([result.pdbString], { type: "text/plain" });
+    const blob = new Blob([pdbData], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "protein_structure.pdb";
+    a.download = `${modelId}_prediction.pdb`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
     toast({
-      title: "Download Started",
-      description: "Your PDB file is being downloaded.",
+      title: "Download started",
+      description: "Your PDB file is being downloaded",
     });
   };
-
-  const handleShare = () => {
-    toast({
-      title: "Share Feature",
-      description: "Sharing functionality will be available soon.",
-    });
+  
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${modelInfo?.name} Prediction`,
+          text: `Check out my ${modelInfo?.name} protein structure prediction!`,
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        toast({
+          title: "Link copied",
+          description: "URL has been copied to clipboard",
+        });
+      }
+    } catch (error) {
+      console.error("Share failed:", error);
+    }
   };
+  
+  const handleCopySequence = () => {
+    navigator.clipboard.writeText(sequence);
+    setCopiedToClipboard(true);
+    setTimeout(() => setCopiedToClipboard(false), 2000);
+  };
+  
+  if (!modelInfo) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center">
+          <p>Model not found</p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1 py-8">
-        <div className="container px-4 md:px-6">
-          <Button 
-            variant="ghost" 
-            className="mb-6" 
-            onClick={() => navigate("/models")}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Models
-          </Button>
-          
-          <div className="flex flex-col space-y-8 md:flex-row md:space-y-0 md:space-x-8">
-            {/* Input Section */}
-            <div className="w-full md:w-1/3 space-y-6">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-muted rounded-full p-2">
-                      {model.icon}
-                    </div>
-                    <div>
-                      <CardTitle>{model.name}</CardTitle>
-                      <Badge variant="secondary" className="mt-1">
-                        {model.tag}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {model.description}
-                  </p>
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label htmlFor="sequence" className="text-sm font-medium">
-                        Protein Sequence
-                      </label>
-                      <Textarea
-                        id="sequence"
-                        placeholder="Enter your protein sequence..."
-                        className="min-h-[150px] font-mono text-xs"
-                        value={sequence}
-                        onChange={handleInputChange}
-                        disabled={isLoading}
-                      />
-                    </div>
-                    
-                    <div className="flex justify-between">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleLoadExample}
-                        disabled={isLoading}
-                      >
-                        Load Example
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={isLoading || !sequence.trim()}
-                        onClick={handleSubmit}
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            Predict Structure
-                            <Send className="ml-2 h-4 w-4" />
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex flex-col items-start pt-0">
-                  <p className="text-xs text-muted-foreground mb-2">
-                    {model.disclaimer}
-                  </p>
-                  {isLoading && (
-                    <div className="w-full space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <span>Processing</span>
-                        <span>{Math.round(progress)}%</span>
-                      </div>
-                      <Progress value={progress} className="h-1" />
-                    </div>
-                  )}
-                </CardFooter>
-              </Card>
+      <main className="flex-1 container mx-auto py-8 px-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-2xl md:text-3xl font-bold">{modelInfo.name}</h1>
+              <Badge variant="outline" className="text-xs">{modelInfo.tag}</Badge>
             </div>
-            
-            {/* Results Section */}
-            <div className="w-full md:w-2/3">
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle>Results</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {!result && !isLoading ? (
-                    <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-                      <FileCode className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                      <h3 className="text-lg font-medium">No Prediction Results</h3>
-                      <p className="text-sm text-muted-foreground max-w-md mt-2">
-                        Enter a protein sequence and click "Predict Structure" to see the results here.
-                      </p>
-                    </div>
-                  ) : isLoading ? (
-                    <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-                      <Loader2 className="h-16 w-16 text-biostruct-500 animate-spin mb-4" />
-                      <h3 className="text-lg font-medium">Processing Your Request</h3>
-                      <p className="text-sm text-muted-foreground max-w-md mt-2">
-                        This may take a minute or two depending on the sequence length.
-                      </p>
-                    </div>
-                  ) : result?.error ? (
-                    <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-                      <div className="rounded-full bg-red-100 p-3 dark:bg-red-900/20 mb-4">
-                        <div className="rounded-full bg-red-200 p-3 dark:bg-red-900/40">
-                          <div className="text-red-600 dark:text-red-200">❗</div>
-                        </div>
-                      </div>
-                      <h3 className="text-lg font-medium">Prediction Error</h3>
-                      <p className="text-sm text-muted-foreground max-w-md mt-2">
-                        {result.error}
-                      </p>
-                    </div>
-                  ) : (
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                      <TabsList className="w-full justify-start mb-4">
-                        <TabsTrigger value="view">3D View</TabsTrigger>
-                        <TabsTrigger value="json">PDB Format</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="view">
-                        <div className="h-[60vh] bg-black/5 dark:bg-white/5 rounded-md overflow-hidden">
-                          {(result?.json?.pdbs?.[0] || result?.pdbString) ? (
-                            <MoleculeViewer pdb={result.json?.pdbs?.[0] || result.pdbString!} />
-                          ) : (
-                            <div className="flex items-center justify-center h-full">
-                              <Skeleton className="h-full w-full" />
-                            </div>
-                          )}
-                        </div>
-                      </TabsContent>
-                      <TabsContent value="json">
-                        {(result?.json?.pdbs?.[0] || result?.pdbString) ? (
-                          <div className="h-[60vh] overflow-auto">
-                            <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs font-mono">
-                              {result.json?.pdbs?.[0] || result.pdbString}
-                            </pre>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center h-[60vh]">
-                            <Skeleton className="h-full w-full" />
-                          </div>
-                        )}
-                      </TabsContent>
-                    </Tabs>
-                  )}
-                </CardContent>
-                {result?.pdbString && (
-                  <CardFooter className="justify-end space-x-2">
-                    <Button variant="outline" onClick={handleShare}>
-                      <Share className="mr-2 h-4 w-4" /> Share
-                    </Button>
-                    <Button onClick={handleDownload}>
-                      <Download className="mr-2 h-4 w-4" /> Download PDB
-                    </Button>
-                  </CardFooter>
-                )}
-              </Card>
-            </div>
+            <p className="text-sm text-muted-foreground">{modelInfo.description}</p>
           </div>
+          {pdbData && (
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Share
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="flex flex-col gap-4">
+            <Card className="p-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label htmlFor="sequence" className="text-sm font-medium">
+                      Protein Sequence
+                    </label>
+                    <button
+                      type="button" 
+                      className="text-xs flex items-center text-muted-foreground hover:text-primary"
+                      onClick={handleCopySequence}
+                    >
+                      {copiedToClipboard ? (
+                        <>
+                          <Check className="h-3 w-3 mr-1" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3 mr-1" />
+                          Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  
+                  <Textarea
+                    id="sequence"
+                    value={sequence}
+                    onChange={(e) => setSequence(e.target.value)}
+                    placeholder="Enter protein sequence (amino acids)"
+                    className="font-mono text-xs md:text-sm h-32"
+                  />
+                  
+                  {errorMessage && (
+                    <p className="text-xs text-destructive mt-1">{errorMessage}</p>
+                  )}
+                </div>
+                
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? "Processing..." : "Predict Structure"}
+                </Button>
+              </form>
+            </Card>
+
+            {jobData && (
+              <Card className="p-4">
+                <h2 className="text-sm font-medium mb-3">Job Information</h2>
+                <div className="space-y-2 text-xs md:text-sm">
+                  <div className="grid grid-cols-3 gap-1">
+                    <span className="font-medium">ID:</span>
+                    <span className="col-span-2">{jobData.id}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1">
+                    <span className="font-medium">Status:</span>
+                    <span className="col-span-2">
+                      <Badge variant={jobData.status === "completed" ? "default" : "secondary"}>
+                        {jobData.status}
+                      </Badge>
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1">
+                    <span className="font-medium">Sequence:</span>
+                    <span className="col-span-2 font-mono text-xs break-all">
+                      {jobData.input_sequence.length > 20 
+                        ? `${jobData.input_sequence.substring(0, 20)}...` 
+                        : jobData.input_sequence}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {pdbData ? (
+            <Card className="overflow-hidden">
+              <Tabs defaultValue="visualization">
+                <div className="px-4 pt-4">
+                  <TabsList className="w-full">
+                    <TabsTrigger value="visualization" className="flex-1 text-xs md:text-sm">Visualization</TabsTrigger>
+                    <TabsTrigger value="data" className="flex-1 text-xs md:text-sm">Data</TabsTrigger>
+                  </TabsList>
+                </div>
+                <TabsContent value="visualization" className="m-0">
+                  <div className="h-[350px] md:h-[500px]">
+                    <MoleculeViewer pdb={pdbData} />
+                  </div>
+                </TabsContent>
+                <TabsContent value="data" className="m-0">
+                  <div className="p-4 overflow-auto h-[350px] md:h-[500px]">
+                    <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+                      {pdbData.substring(0, 1000)}
+                      {pdbData.length > 1000 && "..."}
+                    </pre>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </Card>
+          ) : (
+            <Card className="flex items-center justify-center h-[350px] md:h-[500px] bg-muted/20">
+              {loading ? (
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="flex space-x-2">
+                    <div className="w-3 h-3 bg-primary rounded-full animate-bounce"></div>
+                    <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Predicting structure...</p>
+                </div>
+              ) : (
+                <div className="text-center p-6">
+                  <p className="text-muted-foreground">
+                    {jobId 
+                      ? "No prediction data available for this job" 
+                      : "Submit a sequence to see the predicted structure"}
+                  </p>
+                </div>
+              )}
+            </Card>
+          )}
         </div>
       </main>
       <Footer />

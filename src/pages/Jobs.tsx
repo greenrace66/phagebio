@@ -1,7 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import Navbar from "@/components/navigation/Navbar";
+import Footer from "@/components/landing/Footer";
+import { Card } from "@/components/ui/card";
 
 interface Job {
   id: number;
@@ -33,34 +37,52 @@ const Jobs = () => {
       });
   }, [user]);
 
-  if (loading) return <div>Loading user...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex-1 flex items-center justify-center">
+        <p>Loading user...</p>
+      </main>
+      <Footer />
+    </div>
+  );
+  
   return (
-    <section className="py-16">
-      <div className="container px-4 md:px-6">
-        <h2 className="text-2xl font-bold mb-4">Your Jobs</h2>
-        {jobLoading ? (
-          <p>Loading jobs...</p>
-        ) : jobs.length ? (
-          <ul className="space-y-2">
-            {jobs.map((job) => (
-              <li key={job.id} className="p-4 border rounded-lg flex justify-between items-center">
-                <div>
-                  <p>ID: {job.id}</p>
-                  <p>Model: {job.model_id}</p>
-                  <p>Status: {job.status}</p>
-                  <p>Created: {new Date(job.created_at).toLocaleString()}</p>
-                </div>
-                <Link to={`/models/${job.model_id}?job=${job.id}`} className="text-sm font-medium text-primary hover:underline">
-                  View
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No jobs found.</p>
-        )}
-      </div>
-    </section>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex-1 py-8 md:py-16">
+        <div className="container px-4 md:px-6">
+          <h2 className="text-xl md:text-2xl font-bold mb-4">Your Jobs</h2>
+          {jobLoading ? (
+            <p>Loading jobs...</p>
+          ) : jobs.length ? (
+            <ul className="space-y-2">
+              {jobs.map((job) => (
+                <li key={job.id}>
+                  <Card className="p-4 space-y-2 md:space-y-0 md:flex md:justify-between md:items-center">
+                    <div className="space-y-1">
+                      <p className="text-sm"><span className="font-medium">ID:</span> {job.id}</p>
+                      <p className="text-sm"><span className="font-medium">Model:</span> {job.model_id}</p>
+                      <p className="text-sm"><span className="font-medium">Status:</span> {job.status}</p>
+                      <p className="text-sm"><span className="font-medium">Created:</span> {new Date(job.created_at).toLocaleString()}</p>
+                    </div>
+                    <Link 
+                      to={`/models/${job.model_id}?job=${job.id}`} 
+                      className="block w-full md:w-auto text-center mt-2 md:mt-0 text-sm font-medium text-primary hover:underline bg-primary/5 hover:bg-primary/10 px-4 py-2 rounded-md transition-colors"
+                    >
+                      View
+                    </Link>
+                  </Card>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No jobs found.</p>
+          )}
+        </div>
+      </main>
+      <Footer />
+    </div>
   );
 };
 
