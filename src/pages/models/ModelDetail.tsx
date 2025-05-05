@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -58,6 +57,7 @@ const ModelDetail = () => {
   const [pdbData, setPdbData] = useState<string | null>(null);
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [progress, setProgress] = useState<number>(0);
   
   const modelInfo = modelId ? MODELS[modelId] : undefined;
   

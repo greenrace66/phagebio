@@ -51,9 +51,9 @@ const DemoSection = () => {
                 <div className="bg-black/5 rounded-lg overflow-hidden h-[300px] md:h-[350px]">
                   <DemoMoleculeViewer
                     initialPdbId="1YVB"
-                    initialStyle="Cartoon"
+                    initialStyle="cartoon"
                     initialColor="chainname"
-                    focusLigand
+                    focusLigand={true}
                     hideInfoOnMobile={true}
                   />
                 </div>

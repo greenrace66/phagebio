@@ -6,9 +6,10 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface MoleculeViewerProps {
   pdb: string;
+  hideInfoOnMobile?: boolean; // Added prop definition
 }
 
-const MoleculeViewer = ({ pdb }: MoleculeViewerProps) => {
+const MoleculeViewer = ({ pdb, hideInfoOnMobile = false }: MoleculeViewerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<NGL.Stage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,31 +42,34 @@ const MoleculeViewer = ({ pdb }: MoleculeViewerProps) => {
       const objectUrl = URL.createObjectURL(blob);
       
       stage.loadFile(objectUrl, { ext: "pdb" }).then((component) => {
-        // Add representations
-        component.addRepresentation("cartoon", {
-          colorScheme: "chainname",
-          smoothSheet: true,
-          quality: isMobile ? "low" : "high"
-        });
-        component.addRepresentation("ball+stick", {
-          sele: "hetero and not water",
-          colorScheme: "element",
-          quality: isMobile ? "low" : "medium"
-        });
-        
-        // Adjust camera
-        stage.autoView();
-        stage.setParameters({
-          clipNear: 0,
-          clipFar: 100,
-          clipDist: 0,
-          fogNear: 50,
-          fogFar: 100
-        });
-        
-        // Enable spin for better visualization
-        const rotationSpeed = isMobile ? 0.5 : 1;
-        stage.setSpin([0, 1, 0], rotationSpeed);
+        // Only add representations if component exists
+        if (component) {
+          // Add representations
+          component.addRepresentation("cartoon", {
+            colorScheme: "chainname",
+            smoothSheet: true,
+            quality: isMobile ? "low" : "high"
+          });
+          component.addRepresentation("ball+stick", {
+            sele: "hetero and not water",
+            colorScheme: "element",
+            quality: isMobile ? "low" : "medium"
+          });
+          
+          // Adjust camera
+          stage.autoView();
+          stage.setParameters({
+            clipNear: 0,
+            clipFar: 100,
+            clipDist: 0,
+            fogNear: 50,
+            fogFar: 100
+          });
+          
+          // Enable spin for better visualization
+          const rotationSpeed = isMobile ? 0.5 : 1;
+          stage.setSpin([0, 1, 0], rotationSpeed);
+        }
         
         setIsLoading(false);
         URL.revokeObjectURL(objectUrl);
