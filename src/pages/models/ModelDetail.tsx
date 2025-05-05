@@ -14,6 +14,7 @@ import Navbar from "@/components/navigation/Navbar";
 import Footer from "@/components/landing/Footer";
 import MoleculeViewer from "@/components/molecule/MoleculeViewer";
 import { predictProteinStructure } from "@/utils/proteinApi";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ModelInfo {
   name: string;
@@ -49,6 +50,7 @@ const ModelDetail = () => {
   
   const { user } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   
   const [sequence, setSequence] = useState(DEFAULT_SEQUENCE);
   const [jobData, setJobData] = useState<Job | null>(null);
@@ -344,7 +346,7 @@ const ModelDetail = () => {
                 </div>
                 <TabsContent value="visualization" className="m-0">
                   <div className="h-[350px] md:h-[500px]">
-                    <MoleculeViewer pdb={pdbData} />
+                    <MoleculeViewer pdb={pdbData} hideInfoOnMobile={isMobile} />
                   </div>
                 </TabsContent>
                 <TabsContent value="data" className="m-0">

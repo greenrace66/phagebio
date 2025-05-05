@@ -2,8 +2,11 @@
 import DemoMoleculeViewer from "@/components/molecule/DemoMoleculeViewer";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const DemoSection = () => {
+  const isMobile = useIsMobile();
+  
   return (
     <section className="py-12 md:py-16 lg:py-24">
       <div className="container px-4 md:px-6">
@@ -28,7 +31,7 @@ const DemoSection = () => {
           <TabsContent value="viewer">
             <Card className="border shadow-lg overflow-hidden">
               <div className="h-[350px] md:h-[500px]">
-                <DemoMoleculeViewer initialPdbId="1CRN" />
+                <DemoMoleculeViewer initialPdbId="1CRN" hideInfoOnMobile={true} />
               </div>
             </Card>
           </TabsContent>
@@ -51,6 +54,7 @@ const DemoSection = () => {
                     initialStyle="Cartoon"
                     initialColor="chainname"
                     focusLigand
+                    hideInfoOnMobile={true}
                   />
                 </div>
               </div>
@@ -86,6 +90,7 @@ const DemoSection = () => {
                     initialPdbId="AF-P01308-F1"
                     initialStyle="cartoon"
                     initialColor="bfactor"
+                    hideInfoOnMobile={true}
                   />
                 </div>
               </div>
