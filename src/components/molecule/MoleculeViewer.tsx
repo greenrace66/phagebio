@@ -234,10 +234,10 @@ const MoleculeViewer = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-muted/30 border-b px-4 py-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center space-x-2">
+      <div className="bg-muted/30 border-b px-2 sm:px-4 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-start sm:justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Select defaultValue="cartoon" onValueChange={handleStyleChange}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-24 sm:w-32 h-8 text-xs">
               <SelectValue placeholder="Style" />
             </SelectTrigger>
             <SelectContent>
@@ -249,7 +249,7 @@ const MoleculeViewer = ({
           </Select>
           
           <Select defaultValue="bfactor" onValueChange={handleColorChange}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-24 sm:w-32 h-8 text-xs">
               <SelectValue placeholder="Color" />
             </SelectTrigger>
             <SelectContent>
@@ -261,34 +261,34 @@ const MoleculeViewer = ({
           </Select>
         </div>
         
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" onClick={handleResetView}>Reset View</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleResetView} className="h-8 text-xs">Reset</Button>
           {(pdb || prediction.pdbData) && (
             <Button 
               variant="outline" 
               size="sm" 
               onClick={downloadPrediction}
             >
-              <Download className="w-4 h-4 mr-1" />
-              Download
+              <Download className="w-3 h-3 mr-1" />
+              <span className="hidden sm:inline">Download</span>
             </Button>
           )}
         </div>
       </div>
       
-      <div className="flex flex-1">
-        <div className="flex-1 h-full bg-black/5 relative">
+      <div className="flex flex-col md:flex-row flex-1">
+        <div className="flex-1 h-[300px] md:h-full bg-black/5 relative">
           <div 
             ref={viewerRef} 
             className="absolute inset-0"
           />
         </div>
         
-        <div className="w-64 border-l flex-shrink-0 bg-background">
-          <div className="p-4 text-sm">
-            <div className="space-y-4">
+        <div className="w-full md:w-64 border-t md:border-t-0 md:border-l flex-shrink-0 bg-background">
+          <div className="p-3 md:p-4 text-xs md:text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-1 gap-3 md:space-y-4 md:gap-0">
               <div>
-                <h4 className="font-medium mb-1">Protein Information</h4>
+                <h4 className="font-medium mb-1 text-xs md:text-sm">Protein Information</h4>
                 <p className="text-muted-foreground">
                   {structureSource === "prediction" 
                     ? "Predicted Structure" 
@@ -297,14 +297,14 @@ const MoleculeViewer = ({
               </div>
               
               <div>
-                <h4 className="font-medium mb-1">Confidence</h4>
+                <h4 className="font-medium mb-1 text-xs md:text-sm">Confidence</h4>
                 {averageConfidence !== null ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1 md:space-y-2">
                     <p className="text-muted-foreground">
                       Average: {averageConfidence.toFixed(1)}
                     </p>
-                    <div className="h-4 w-full bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500 rounded-full" />
-                    <div className="flex justify-between text-xs text-muted-foreground">
+                    <div className="h-3 md:h-4 w-full bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500 rounded-full" />
+                    <div className="flex justify-between text-[10px] md:text-xs text-muted-foreground">
                       <span>Low</span>
                       <span>Medium</span>
                       <span>High</span>
@@ -316,7 +316,7 @@ const MoleculeViewer = ({
               </div>
               
               <div>
-                <h4 className="font-medium mb-1">Source</h4>
+                <h4 className="font-medium mb-1 text-xs md:text-sm">Source</h4>
                 {structureSource === "prediction" ? (
                   <div className="flex items-center text-muted-foreground">
                     <FileText className="h-3 w-3 mr-1" />
@@ -331,10 +331,10 @@ const MoleculeViewer = ({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="w-full"
+                  className="w-full col-span-2 md:col-span-1 mt-1 md:mt-0 h-8 text-xs"
                   onClick={downloadPrediction}
                 >
-                  <Download className="w-4 h-4 mr-1" />
+                  <Download className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                   Download Structure
                 </Button>
               )}
