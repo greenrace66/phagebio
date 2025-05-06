@@ -119,18 +119,6 @@ const Navbar = () => {
           
           {user ? (
             <>
-              <Button variant="ghost" size="icon" className="text-muted-foreground">
-                <Search className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-muted-foreground">
-                <FileText className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-muted-foreground">
-                <DatabaseIcon className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-muted-foreground">
-                <Settings className="h-5 w-5" />
-              </Button>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
