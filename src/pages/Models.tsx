@@ -7,10 +7,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileCode, Dna, Lock, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const ModelsPage = () => {
   const navigate = useNavigate();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const models = [
     {
@@ -43,29 +45,31 @@ const ModelsPage = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1 py-16">
+      <main className="flex-1 py-8 md:py-16">
         <div className="container px-4 md:px-6">
-          <div className="flex flex-col items-center text-center space-y-4 mb-12">
-            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
+          <div className="flex flex-col items-center text-center space-y-4 mb-8 md:mb-12">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight lg:text-4xl">
               Available Models
             </h1>
-            <p className="max-w-[600px] text-muted-foreground text-lg">
+            <p className="max-w-[600px] text-muted-foreground text-base md:text-lg">
               Explore our collection of state-of-the-art models
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-7xl mx-auto">
             {models.map((model) => (
               <Card 
                 key={model.id}
-                className={`p-6 transition-all duration-200 ${
+                className={`p-4 md:p-6 transition-all duration-200 ${
                   model.disabled 
                     ? "opacity-50 cursor-not-allowed" 
                     : "hover:shadow-lg transform hover:-translate-y-1 cursor-pointer"
                 } ${hoveredCard === model.id && !model.disabled ? "border-biostruct-300" : ""}`}
                 onClick={() => handleCardClick(model.id, model.disabled)}
-                onMouseEnter={() => setHoveredCard(model.id)}
-                onMouseLeave={() => setHoveredCard(null)}
+                onMouseEnter={() => !isMobile && setHoveredCard(model.id)}
+                onMouseLeave={() => !isMobile && setHoveredCard(null)}
+                onTouchStart={() => isMobile && !model.disabled && setHoveredCard(model.id)}
+                onTouchEnd={() => isMobile && setHoveredCard(null)}
               >
                 <div className="relative">
                   {model.disabled && (
@@ -81,7 +85,7 @@ const ModelsPage = () => {
                       {model.icon}
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold">{model.name}</h2>
+                      <h2 className="text-lg md:text-xl font-bold">{model.name}</h2>
                       <Badge variant="secondary" className="mt-1">
                         {model.tag}
                       </Badge>
