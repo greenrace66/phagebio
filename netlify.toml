@@ -1,6 +1,5 @@
 [[redirects]]
-  # Proxy API calls to NVIDIA ESMFold endpoint
-  from = "/api/esmfold/*"
-  to   = "https://health.api.nvidia.com/v1/biology/nvidia/esmfold/:splat"
+  from = "/api/esmfold"
+  to   = "https://health.api.nvidia.com/v1/biology/nvidia/esmfold"
   status = 200
   force  = true
