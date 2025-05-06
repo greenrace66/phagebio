@@ -1,8 +1,12 @@
+
 import DemoMoleculeViewer from "@/components/molecule/DemoMoleculeViewer";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const DemoSection = () => {
+  const isMobile = useIsMobile();
+  
   return (
     <section className="py-16 md:py-24">
       <div className="container px-4 md:px-6">
@@ -35,7 +39,7 @@ const DemoSection = () => {
           <TabsContent value="docking">
             <Card className="border shadow-lg overflow-hidden p-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
+                <div className={isMobile ? "hidden" : ""}>
                   <h3 className="text-xl font-semibold mb-4">Sample Complex</h3>
                   <div className="space-y-4 mt-6">
                     <div className="border rounded-md p-3 bg-muted/30 text-sm">
@@ -44,7 +48,7 @@ const DemoSection = () => {
                   </div>
                 </div>
                 
-                <div className="bg-black/5 rounded-lg overflow-hidden">
+                <div className={`bg-black/5 rounded-lg overflow-hidden ${isMobile ? "col-span-full" : ""}`}>
                   <DemoMoleculeViewer
                     initialPdbId="1YVB"
                     initialStyle="Cartoon"
@@ -59,7 +63,7 @@ const DemoSection = () => {
           <TabsContent value="prediction">
             <Card className="border shadow-lg overflow-hidden p-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
+                <div className={isMobile ? "hidden" : ""}>
                   <h3 className="text-xl font-semibold mb-4">Structure Prediction</h3>
                   <p className="text-muted-foreground mb-4">
                     Visualize predicted protein structures colored by pLDDT confidence scores.
@@ -80,7 +84,7 @@ const DemoSection = () => {
                   </div>
                 </div>
                 
-                <div className="bg-black/5 rounded-lg overflow-hidden">
+                <div className={`bg-black/5 rounded-lg overflow-hidden ${isMobile ? "col-span-full" : ""}`}>
                   <DemoMoleculeViewer 
                     initialPdbId="AF-P01308-F1"
                     initialStyle="cartoon"

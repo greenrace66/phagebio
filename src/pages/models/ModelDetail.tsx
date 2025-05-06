@@ -15,6 +15,7 @@ import MoleculeViewer from "@/components/molecule/MoleculeViewer";
 import { ArrowLeft, Send, Download, Share, FileCode, Loader2, FileText } from "lucide-react";
 import { predictStructure, validateSequence, cleanSequence } from "@/utils/proteinApi";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const models = {
   esmfold: {
@@ -37,13 +38,14 @@ const ModelDetail = () => {
   const jobId = searchParams.get("job");
   const [sequence, setSequence] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [progress, setProgress] = useState(0); // Ensure it's a number
+  const [progress, setProgress] = useState<number>(0); // Explicitly typed as number
   const [result, setResult] = useState<{
     pdbString?: string;
     json?: any;
     error?: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState("view");
+  const isMobile = useIsMobile();
 
   // Load job parameters if jobId present
   useEffect(() => {
@@ -382,7 +384,10 @@ const ModelDetail = () => {
                       <TabsContent value="view">
                         <div className="h-[60vh] bg-black/5 dark:bg-white/5 rounded-md overflow-hidden">
                           {(result?.json?.pdbs?.[0] || result?.pdbString) ? (
-                            <MoleculeViewer pdb={result.json?.pdbs?.[0] || result.pdbString!} />
+                            <MoleculeViewer 
+                              pdb={result.json?.pdbs?.[0] || result.pdbString!}
+                              hideInfoOnMobile={isMobile} 
+                            />
                           ) : (
                             <div className="flex items-center justify-center h-full">
                               <Skeleton className="h-full w-full" />
