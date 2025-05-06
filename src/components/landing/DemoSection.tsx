@@ -16,13 +16,17 @@ const DemoSection = () => {
         </div>
         
         <Tabs defaultValue="viewer" className="w-full">
-          <div className="flex justify-center mb-6">
-            <TabsList>
-              <TabsTrigger value="viewer">Molecular Viewer</TabsTrigger>
-              <TabsTrigger value="docking">Molecular Docking</TabsTrigger>
-              <TabsTrigger value="prediction">Structure Prediction</TabsTrigger>
-            </TabsList>
-          </div>
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6 gap-2">
+            <TabsTrigger value="viewer" className="px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm">
+              Molecular Viewer
+            </TabsTrigger>
+            <TabsTrigger value="docking" className="px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm">
+              Molecular Docking
+            </TabsTrigger>
+            <TabsTrigger value="prediction" className="px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm">
+              Structure Prediction
+            </TabsTrigger>
+          </TabsList>
           
           <TabsContent value="viewer">
             <Card className="border shadow-lg overflow-hidden">
