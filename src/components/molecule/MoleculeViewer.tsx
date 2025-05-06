@@ -1,74 +1,89 @@
 
-import { useEffect, useRef, useState } from 'react';
-import * as NGL from 'ngl';
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useEffect, useRef } from 'react';
+import { Structure } from '@rcsb/rcsb-molstar/lib/mol-model/structure';
+import { StructureElement } from '@rcsb/rcsb-molstar/lib/mol-model/structure/structure';
+import { StructureRepresentation } from '@rcsb/rcsb-molstar/lib/mol-repr/structure/representation';
+import { createPluginUI } from '@rcsb/rcsb-molstar/lib/mol-plugin-ui';
+import { PluginUIContext } from '@rcsb/rcsb-molstar/lib/mol-plugin-ui/context';
+import { DefaultPluginUISpec } from '@rcsb/rcsb-molstar/lib/mol-plugin-ui/spec';
+import { Color } from '@rcsb/rcsb-molstar/lib/mol-util/color';
+import { ColorNames } from '@rcsb/rcsb-molstar/lib/mol-util/color/names';
 
 export interface MoleculeViewerProps {
   pdb: string;
   hideInfoOnMobile?: boolean;
 }
 
-const MoleculeViewer = ({ pdb, hideInfoOnMobile = true }: MoleculeViewerProps) => {
+const MoleculeViewer = ({ pdb }: MoleculeViewerProps) => {
   const viewerRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const isMobile = useIsMobile();
+  const pluginRef = useRef<PluginUIContext | null>(null);
+  const structureRef = useRef<Structure | null>(null);
+  const representationRef = useRef<StructureRepresentation<any> | null>(null);
 
   useEffect(() => {
     if (!viewerRef.current) return;
 
-    // Initialize NGL Stage
-    const stage = new NGL.Stage(viewerRef.current, { backgroundColor: "white" });
-    stageRef.current = stage;
-
-    // Handle window resize
-    const handleResize = () => {
-      stage.handleResize();
-    };
-    window.addEventListener('resize', handleResize);
+    const plugin = createPluginUI(viewerRef.current, {
+      ...DefaultPluginUISpec(),
+      layout: {
+        initial: {
+          isExpanded: false,
+          showControls: false,
+          controlsDisplay: 'hidden',
+        }
+      },
+      components: {
+        controls: { left: 'none', right: 'none', top: 'none', bottom: 'none' },
+      }
+    });
+    
+    pluginRef.current = plugin;
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      stage.dispose();
+      plugin.dispose();
     };
   }, []);
 
   useEffect(() => {
     const loadStructure = async () => {
-      if (!stageRef.current || !pdb) return;
-      
+      if (!pluginRef.current || !pdb) return;
+
       try {
-        setIsLoading(true);
-        // Clear existing structures
-        stageRef.current.removeAllComponents();
+        await pluginRef.current.clear();
+
+        const data = await pluginRef.current.builders.data.rawData({ data: pdb, label: 'PDB' });
+        const trajectory = await pluginRef.current.builders.structure.parseTrajectory(data, 'pdb');
         
-        let component;
-        // Check if pdb is a PDB ID (short string) or PDB data (long string)
-        if (pdb.length < 10) {
-          component = await stageRef.current.loadFile(`rcsb://${pdb}`);
-        } else {
-          component = await stageRef.current.loadFile(
-            new Blob([pdb], {type: 'text/plain'}),
-            { ext: 'pdb' }
-          );
-        }
+        const model = await pluginRef.current.builders.structure.createModel(trajectory);
+        const structure = await pluginRef.current.builders.structure.createStructure(model);
         
-        component.addRepresentation('cartoon', { color: 'chainname' });
-        component.addRepresentation('ball+stick', { 
-          sele: 'hetero', 
-          color: 'element', 
-          scale: 0.8 
+        structureRef.current = structure;
+
+        // Add cartoon representation
+        const cartoonRepr = await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
+          type: 'cartoon',
+          color: 'chain-id',
+          size: 'uniform'
         });
+
+        // Add ball-and-stick representation for ligands
+        const ballAndStickRepr = await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
+          type: 'ball-and-stick',
+          typeParams: { alpha: 0.5 },
+          color: 'element-symbol',
+          size: 'uniform'
+        });
+
+        const canvas = pluginRef.current.canvas3d!;
+        canvas.setBackground(Color(ColorNames.white));
         
-        component.autoView();
+        // Fixed: Now we only pass one argument to setSpin
+        canvas.setSpin(true);
         
-        // Optionally add spin animation
-        stageRef.current.setSpin(true);
-        
+        await pluginRef.current.canvas3d?.resetCamera();
+        await pluginRef.current.canvas3d?.requestAnimation();
       } catch (error) {
         console.error('Error loading structure:', error);
-      } finally {
-        setIsLoading(false);
       }
     };
 
