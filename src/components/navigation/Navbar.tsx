@@ -106,6 +106,11 @@ const Navbar = () => {
           Jobs
         </Link>
       </li>
+      <li>
+        <Link to="/contact" className="text-sm font-medium hover:text-primary transition-colors">
+          Contact
+        </Link>
+      </li>
     </ul>
   );
   

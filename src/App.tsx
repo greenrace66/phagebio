@@ -14,6 +14,7 @@ import Login from "./pages/login/Login";
 import Jobs from "./pages/Jobs";
 import Profile from "./pages/Profile";
 import Account from "./pages/Account";
+import Contact from "./pages/Contact";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/account" element={<Account />} />
+              <Route path="/contact" element={<Contact />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
