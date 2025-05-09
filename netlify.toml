@@ -1,36 +1,5 @@
-[build]
-  command = "npm run build"
-  publish = "dist"
-  functions = "netlify/functions"
-
-[functions]
-  directory = "src/app/api" # Or wherever your Netlify functions are actually located
-  node_bundler = "esbuild"
-
 [[redirects]]
   from = "/api/esmfold"
   to   = "https://health.api.nvidia.com/v1/biology/nvidia/esmfold"
   status = 200
   force  = true
-
-# Redirects for Razorpay API functions
-[[redirects]]
-  from = "/.netlify/functions/create-order"
-  to = "/.netlify/functions/create-order"
-  status = 200
-
-[[redirects]]
-  from = "/.netlify/functions/verify-payment"
-  to = "/.netlify/functions/verify-payment"
-  status = 200
-
-[[redirects]]
-  from = "/.netlify/functions/webhook"
-  to = "/.netlify/functions/webhook"
-  status = 200
-
-# Fallback for client-side routing
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
