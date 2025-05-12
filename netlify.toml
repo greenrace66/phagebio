@@ -3,3 +3,9 @@
   to   = "https://health.api.nvidia.com/v1/biology/nvidia/esmfold"
   status = 200
   force  = true
+
+[dev]
+  command = "bun dev"
+  port = 8888
+  targetPort = 8080
+  
