@@ -8,4 +8,4 @@
   command = "bun dev"
   port = 8888
   targetPort = 8080
-  
+  functions = "src/app/api"

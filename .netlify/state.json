@@ -1,0 +1,20 @@
+{
+	"geolocation": {
+		"data": {
+			"city": "Coimbatore",
+			"country": {
+				"code": "IN",
+				"name": "India"
+			},
+			"subdivision": {
+				"code": "TN",
+				"name": "Tamil Nadu"
+			},
+			"timezone": "Asia/Kolkata",
+			"latitude": 11.0102,
+			"longitude": 76.9701,
+			"postalCode": "641004"
+		},
+		"timestamp": 1747064068770
+	}
+}
