@@ -15,6 +15,9 @@
   publish   = "dist"
   functions = "src/app/api"
 
+[functions]
+  included_node_modules = ["razorpay"]
+
 [dev]
   command    = "bun dev"
   port       = 8888
