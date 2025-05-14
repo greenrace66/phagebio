@@ -16,7 +16,8 @@
   functions = "src/app/api"
 
 [functions]
-  included_node_modules = ["razorpay"]
+  [functions.included_node_modules]
+  external_node_modules = ["razorpay"]
 
 [dev]
   command    = "bun dev"
