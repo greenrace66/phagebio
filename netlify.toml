@@ -11,7 +11,7 @@
   force  = true
 
 [build]
-  command   = "bun build"
+  command   = "npm run build"
   publish   = "dist"
   functions = "src/app/api"
 
