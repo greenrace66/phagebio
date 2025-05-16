@@ -26,7 +26,7 @@ const PricingPage = () => {
   const VERIFY_PAYMENT_API = "/.netlify/functions/verify-payment";
 
   // Razorpay test key (do NOT use secret key here)
-  const RAZORPAY_KEY_ID = "rzp_test_D26pJ1Tk61aYjf"; // TODO: Replace with your Razorpay test key
+  const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID; // TODO: Replace with your Razorpay test key
 
   // Purchase handler
   const handlePurchase = async () => {
