@@ -1,0 +1,60 @@
+redirectsOrigin = "config"
+plugins = []
+functionsDirectory = "C:\\Users\\nikil\\Downloads\\biostructfromgit\\src\\app\\api"
+functionsDirectoryOrigin = "config-v1"
+headers = []
+
+[dev]
+command = "bun dev"
+port = 8888.0
+targetPort = 8080.0
+functions = "src/app/api"
+
+[functions]
+
+[functions."*"]
+
+[build]
+publish = "C:\\Users\\nikil\\Downloads\\biostructfromgit\\dist"
+publishOrigin = "config"
+commandOrigin = "config"
+command = "npm run build"
+functions = "C:\\Users\\nikil\\Downloads\\biostructfromgit\\src\\app\\api"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]
+
+[[redirects]]
+from = "/api/esmfold"
+to = "https://health.api.nvidia.com/v1/biology/nvidia/esmfold"
+status = 200.0
+force = true
+
+[redirects.query]
+
+[redirects.conditions]
+
+[redirects.headers]
+
+[[redirects]]
+from = "/api/*"
+to = "/.netlify/functions/:splat"
+status = 200.0
+force = true
+
+[redirects.query]
+
+[redirects.conditions]
+
+[redirects.headers]
