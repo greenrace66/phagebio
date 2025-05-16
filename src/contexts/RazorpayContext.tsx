@@ -2,11 +2,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { loadRazorpayScript, createOrder, verifyPayment, RazorpayOrder, RazorpayPayment } from '@/services/payments';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface RazorpayContextType {
   isLoading: boolean;
   isProcessing: boolean;
-  initiatePayment: (amount: number, planName: string) => Promise<boolean>;
+  initiatePayment: (amount: number, credits: string) => Promise<boolean>;
 }
 
 const RazorpayContext = createContext<RazorpayContextType | undefined>(undefined);
@@ -29,41 +30,26 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [user, setUser] = useState<any>(null);
 
-  // Get current user
+  // Get current user from useAuth hook
+  const { user: authUser } = useAuth();
+
   useEffect(() => {
     const getCurrentUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
+      if (authUser) {
         const { data } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', session.user.id)
+          .eq('id', authUser.id)
           .single();
         
-        setUser(data);
+        setUser(data || authUser);
+      } else {
+        setUser(null);
       }
     };
 
     getCurrentUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        setUser(data);
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
+  }, [authUser]);
 
   // Load Razorpay script on component mount
   useEffect(() => {
@@ -86,7 +72,7 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
     loadScript();
   }, []);
 
-  const initiatePayment = async (amount: number, planName: string): Promise<boolean> => {
+  const initiatePayment = async (amount: number, credits: string): Promise<boolean> => {
     if (!user) {
       toast.error('Please log in to make a payment');
       return false;
@@ -100,9 +86,8 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
     setIsProcessing(true);
 
     try {
-      // Create an order
-      const receipt = `receipt_${Date.now()}`;
-      const order = await createOrder(amount, 'INR', receipt);
+      // Create an order with credits
+      const order = await createOrder(amount, 'USD', `credits_${credits}`);
 
       if (!order) {
         throw new Error('Failed to create order');
@@ -110,11 +95,11 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
 
       // Open Razorpay checkout
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_yourkeyhere',
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: order.amount.toString(),
         currency: order.currency,
         name: 'Bio Struct Forge',
-        description: `Payment for ${planName}`,
+        description: `Purchase ${credits} Credits`,
         order_id: order.id,
         prefill: {
           name: user.full_name || '',
@@ -124,14 +109,26 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
           color: '#10b981', // biostruct-500 color
         },
         handler: async function (response: RazorpayPayment) {
+          try {
           // Verify payment
-          const isVerified = await verifyPayment(response);
+            const isVerified = await verifyPayment({
+              ...response,
+              credits: credits
+            });
           
           if (isVerified) {
-            toast.success('Payment successful! Your account has been upgraded.');
+              toast.success(`Successfully purchased ${credits} credits!`);
+              setIsProcessing(false);
             return true;
           } else {
+              toast.error('Payment verification failed. Please contact support.');
+              setIsProcessing(false);
+              return false;
+            }
+          } catch (error) {
+            console.error('Payment verification error:', error);
             toast.error('Payment verification failed. Please contact support.');
+            setIsProcessing(false);
             return false;
           }
         },
@@ -143,13 +140,17 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
         },
       };
 
+      // Check if Razorpay is available in window
+      if (typeof window !== 'undefined' && (window as any).Razorpay) {
       const razorpay = new (window as any).Razorpay(options);
       razorpay.open();
-      
       return true;
-    } catch (error) {
+      } else {
+        throw new Error('Razorpay is not initialized');
+      }
+    } catch (error: any) {
       console.error('Payment initiation error:', error);
-      toast.error('Failed to initiate payment. Please try again later.');
+      toast.error(error.message || 'Failed to initiate payment. Please try again later.');
       setIsProcessing(false);
       return false;
     }

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AuthProvider } from "@/hooks/useAuth";
+import { RazorpayProvider } from "@/contexts/RazorpayContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Pricing from "./pages/Pricing";
@@ -22,11 +23,12 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="system" storageKey="biostruct-ui-theme">
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
+        <RazorpayProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/models" element={<Models />} />
@@ -37,9 +39,10 @@ const App = () => (
               <Route path="/account" element={<Account />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </RazorpayProvider>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
