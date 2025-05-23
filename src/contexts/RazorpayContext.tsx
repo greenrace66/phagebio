@@ -87,7 +87,7 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
 
     try {
       // Create an order with credits
-      const order = await createOrder(amount, 'USD', `credits_${credits}`);
+      const order = await createOrder(amount, 'INR', `credits_${credits}`);
 
       if (!order) {
         throw new Error('Failed to create order');

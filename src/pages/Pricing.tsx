@@ -56,8 +56,8 @@ const PricingPage = () => {
         return;
       }
 
-      // Calculate amount in INR (100 credits = $1 = ₹83)
-      const amount = Math.round(credits * 0.83); // Convert credits to INR
+      // Calculate amount in paise (100 credits = ₹83 = 8300 paise)
+      const amount = credits * 83; // 1 credit = 0.83 INR, 100 credits = 83 INR, in paise = 8300
       
       // Use the initiatePayment method from RazorpayContext
       const result = await initiatePayment(amount, credits.toString());

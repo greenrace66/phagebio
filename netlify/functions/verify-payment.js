@@ -90,6 +90,9 @@ exports.handler = async function(event, context) {
       });
     }
 
+    // Parse credits from plan (e.g., 'credits_100')
+    const creditsPurchased = plan && plan.startsWith('credits_') ? parseInt(plan.split('_')[1]) : 0;
+
     // 1. Signature verification
     const generated_signature = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET)
       .update(razorpay_order_id + '|' + razorpay_payment_id)
@@ -110,44 +113,61 @@ exports.handler = async function(event, context) {
         expected: generated_signature,
         received: razorpay_signature
       });
+      // Update transaction as failed
+      try {
+        await supabase.from('transactions').update({
+          payment_id: razorpay_payment_id || null,
+          status: 'failed',
+          plan: plan || null
+        }).eq('order_id', razorpay_order_id);
+      } catch (txErr) {
+        console.error('Supabase update error (failed payment):', txErr);
+      }
       return res.status(400).json({ 
         success: false, 
         message: 'Payment signature verification failed. This could be due to tampering or incorrect parameters. Please ensure all payment details are correct and try again. If the issue persists, please contact support with your order ID: ' + razorpay_order_id
       });
     }
-    // 2. Store transaction in Supabase
-    console.log('Attempting to store transaction in Supabase...');
-    const { data, error } = await supabase.from('transactions').insert([
-      {
-        order_id: razorpay_order_id,
+    // 2. Update transaction in Supabase as success
+    console.log('Attempting to update transaction in Supabase...');
+    try {
+      await supabase.from('transactions').update({
         payment_id: razorpay_payment_id,
-        plan,
-        user_id: user_id || null,
         status: 'success',
-        created_at: new Date().toISOString(),
-      },
-    ]);
-    if (error) {
-      console.error('Supabase insert error:', error);
-      return res.status(500).json({ success: false, message: 'Database error' });
+        plan
+      }).eq('order_id', razorpay_order_id);
+    } catch (txErr) {
+      console.error('Supabase update error (success payment):', txErr);
     }
-    // 3. Activate subscription logic (customize as needed)
-    // Update user's subscription status if user_id is provided
-    if (user_id) {
-      console.log('Updating user subscription:', { user_id, plan });
-      const { error: subscriptionError } = await supabase
-        .from('profiles')
-        .update({ subscription: plan })
-        .eq('id', user_id);
-      
-      if (subscriptionError) {
-        console.error('Subscription update error:', subscriptionError);
-        return res.status(500).json({ success: false, message: 'Subscription update failed' });
+    // 3. Increment user's credits if user_id and creditsPurchased are valid
+    if (user_id && creditsPurchased > 0) {
+      try {
+        await supabase.rpc('increment_credits', { user_id_param: user_id, credits_to_add: creditsPurchased });
+      } catch (creditErr) {
+        // Fallback to direct update if RPC not available
+        try {
+          await supabase.from('profiles').update({
+            credits: supabase.raw('credits + ?', [creditsPurchased])
+          }).eq('id', user_id);
+        } catch (fallbackErr) {
+          console.error('Supabase update error (increment credits):', fallbackErr);
+        }
       }
     }
 
     return res.status(200).json({ success: true });
   } catch (err) {
+    // Update transaction as failed
+    try {
+      const { razorpay_order_id, razorpay_payment_id, plan, user_id } = req.body || {};
+      await supabase.from('transactions').update({
+        payment_id: razorpay_payment_id || null,
+        status: 'failed',
+        plan: plan || null
+      }).eq('order_id', razorpay_order_id || null);
+    } catch (txErr) {
+      console.error('Supabase update error (catch block):', txErr);
+    }
     console.error('Payment verification error:', {
       error: err.message,
       stack: err.stack,

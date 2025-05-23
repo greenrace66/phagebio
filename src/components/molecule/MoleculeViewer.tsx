@@ -14,7 +14,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import * as NGL from "ngl";
+import { DefaultPluginSpec } from 'molstar/lib/mol-plugin/spec';
+import { PluginContext } from 'molstar/lib/mol-plugin/context';
+import { PluginCommands } from 'molstar/lib/mol-plugin/commands';
+import { StateSelection } from 'molstar/lib/mol-state';
+import { StructureRepresentationPresetProvider } from 'molstar/lib/mol-plugin-state/builder/structure/representation-preset';
+import { ColorTheme } from 'molstar/lib/mol-theme/color';
+import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
+import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
 
 interface MoleculeViewerProps {
@@ -27,7 +34,7 @@ const MoleculeViewer = ({
   pdb
 }: MoleculeViewerProps) => {
   const viewerRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<any>(null);
+  const pluginRef = useRef<PluginContext | null>(null);
   const { toast } = useToast();
   
   // Structure prediction states
@@ -45,60 +52,95 @@ const MoleculeViewer = ({
   useEffect(() => {
     if (!viewerRef.current) return;
 
-    // Initialize NGL Stage
-    const stage = new NGL.Stage(viewerRef.current, { backgroundColor: "white" });
-    stageRef.current = stage;
+    const initMolstar = async () => {
+      try {
+        // Create canvas element
+        const canvas = document.createElement('canvas');
+        viewerRef.current.appendChild(canvas);
 
-    if (pdb) {
-      loadStructure(pdb);
-    }
+        // Initialize Mol* plugin
+        const plugin = new PluginContext(DefaultPluginSpec());
+        await plugin.init();
+        plugin.initViewer(canvas, viewerRef.current);
+        pluginRef.current = plugin;
 
-    // Handle window resize
-    const handleResize = () => {
-      stage.handleResize();
+        if (pdb) {
+          loadStructure(pdb);
+        }
+
+        // Handle window resize
+        const handleResize = () => {
+          plugin.canvas3d?.handleResize();
+        };
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+          window.removeEventListener('resize', handleResize);
+          plugin.dispose();
+        };
+      } catch (error) {
+        console.error('Failed to initialize Mol*:', error);
+        toast({
+          title: "Initialization Error",
+          description: "Failed to initialize the molecular viewer.",
+          variant: "destructive",
+        });
+      }
     };
-    window.addEventListener('resize', handleResize);
 
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      stage.dispose();
-    };
+    initMolstar();
   }, [pdb]);
 
-  const calculateAverageConfidence = (component: any) => {
-    if (!component) return null;
+  const calculateAverageConfidence = (structure: any) => {
+    if (!structure) return null;
     
     let totalBfactor = 0;
     let atomCount = 0;
     
-    component.structure.eachAtom((atom: any) => {
-      totalBfactor += atom.bfactor;
-      atomCount++;
-    });
+    // Iterate through structure units and atoms
+    for (const unit of structure.units) {
+      const { elements } = unit;
+      const bFactors = unit.model.atomicConformation.B_iso_or_equiv;
+      
+      for (let i = 0; i < elements.length; i++) {
+        totalBfactor += bFactors.value(elements[i]);
+        atomCount++;
+      }
+    }
     
     return atomCount > 0 ? totalBfactor / atomCount : null;
   };
 
   const loadStructure = async (pdbData: string) => {
-    if (!stageRef.current) return;
+    if (!pluginRef.current) return;
     
     try {
       // Clear existing structures
-      stageRef.current.removeAllComponents();
+      await pluginRef.current.clear();
       
-      const component = await stageRef.current.loadFile(
-        new Blob([pdbData], {type: 'text/plain'}),
-        { ext: 'pdb' }
-      );
+      // Load from PDB string data
+      const data = await pluginRef.current.builders.data.rawData({
+        data: pdbData,
+        label: 'Predicted Structure'
+      });
+      const trajectory = await pluginRef.current.builders.structure.parseTrajectory(data, 'pdb');
+      const model = await pluginRef.current.builders.structure.createModel(trajectory);
+      const structure = await pluginRef.current.builders.structure.createStructure(model);
       
       // Calculate average confidence
-      const avgConf = calculateAverageConfidence(component);
+      const avgConf = calculateAverageConfidence(structure.data);
       setAverageConfidence(avgConf);
       
-      component.addRepresentation(initialStyle, {
-        color: 'bfactor'
+      // Apply representation with bfactor coloring for predictions
+      await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
+        type: initialStyle === 'cartoon' ? 'cartoon' : 
+              initialStyle === 'spacefill' ? 'spacefill' :
+              initialStyle === 'licorice' ? 'ball-and-stick' : 'surface',
+        colorTheme: { name: 'atom-test' } // Use b-factor coloring for pLDDT
       });
-      component.autoView();
+      
+      // Auto-focus the structure
+      await PluginCommands.Camera.Reset(pluginRef.current, {});
       
       setStructureSource("prediction");
       toast({
@@ -106,6 +148,7 @@ const MoleculeViewer = ({
         description: "Successfully loaded predicted structure",
       });
     } catch (error) {
+      console.error('Structure loading error:', error);
       toast({
         title: "Error",
         description: "Failed to load structure. Please check your input.",
@@ -203,32 +246,70 @@ const MoleculeViewer = ({
   };
 
   // Handle style changes
-  const handleStyleChange = (style: string) => {
-    const component = stageRef.current?.compList[0];
-    if (!component) return;
+  const handleStyleChange = async (style: string) => {
+    if (!pluginRef.current) return;
 
-    component.removeAllRepresentations();
-    component.addRepresentation(style, {
-      color: 'bfactor'
-    });
+    try {
+      // Get current structure
+      const structures = pluginRef.current.managers.structure.hierarchy.current.structures;
+      if (structures.length === 0) return;
+
+      const structure = structures[0];
+      
+      // Remove existing representations
+      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
+      for (const repr of reprs) {
+        await PluginCommands.State.RemoveObject(pluginRef.current, { state: repr.parent!, ref: repr.transform.ref });
+      }
+
+      // Add new representation
+      const reprType = style === 'cartoon' ? 'cartoon' : 
+                      style === 'spacefill' ? 'spacefill' :
+                      style === 'licorice' ? 'ball-and-stick' : 'surface';
+      
+      await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
+        type: reprType,
+        colorTheme: { name: 'atom-test' } // Use pLDDT coloring for predictions
+      });
+    } catch (error) {
+      console.error('Style change error:', error);
+    }
   };
 
   // Handle color scheme changes
-  const handleColorChange = (colorScheme: string) => {
-    const component = stageRef.current?.compList[0];
-    if (!component) return;
+  const handleColorChange = async (colorScheme: string) => {
+    if (!pluginRef.current) return;
 
-    const currentRepresentation = component.reprList[0];
-    if (currentRepresentation) {
-      currentRepresentation.setParameters({ color: colorScheme });
+    try {
+      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
+      if (reprs.length === 0) return;
+
+      const colorThemeName = colorScheme === 'chainname' ? 'chain-id' : 
+                            colorScheme === 'residueindex' ? 'residue-name' :
+                            colorScheme === 'atomindex' ? 'element-symbol' : 'atom-test';
+
+      for (const repr of reprs) {
+        await PluginCommands.State.Update(pluginRef.current, {
+          state: repr.parent!,
+          tree: repr,
+          params: {
+            colorTheme: { name: colorThemeName }
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Color change error:', error);
     }
   };
 
   // Reset view
-  const handleResetView = () => {
-    const component = stageRef.current?.compList[0];
-    if (component) {
-      component.autoView();
+  const handleResetView = async () => {
+    if (!pluginRef.current) return;
+    
+    try {
+      await PluginCommands.Camera.Reset(pluginRef.current, {});
+    } catch (error) {
+      console.error('Reset view error:', error);
     }
   };
 
