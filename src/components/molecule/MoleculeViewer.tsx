@@ -267,9 +267,25 @@ const MoleculeViewer = ({
                       style === 'spacefill' ? 'spacefill' :
                       style === 'licorice' ? 'ball-and-stick' : 'surface';
       
+      // Use appropriate coloring based on structure source
+      let colorTheme;
+      if (structureSource === 'prediction') {
+        // Always use pLDDT coloring for predictions
+        colorTheme = 'atom-test';
+      } else {
+        // For PDB structures, use the current color scheme
+        const currentColorSelect = document.querySelector('select[placeholder="Color"]') as HTMLSelectElement;
+        const currentColor = currentColorSelect?.value || 'bfactor';
+        
+        colorTheme = currentColor === 'chainname' ? 'chain-id' : 
+                    currentColor === 'residueindex' ? 'residue-name' :
+                    currentColor === 'atomindex' ? 'element-symbol' :
+                    currentColor === 'bfactor' ? 'atom-test' : 'chain-id';
+      }
+      
       await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
         type: reprType,
-        colorTheme: { name: 'atom-test' } // Use pLDDT coloring for predictions
+        colorTheme: { name: colorTheme }
       });
     } catch (error) {
       console.error('Style change error:', error);
@@ -284,9 +300,32 @@ const MoleculeViewer = ({
       const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
       if (reprs.length === 0) return;
 
-      const colorThemeName = colorScheme === 'chainname' ? 'chain-id' : 
-                            colorScheme === 'residueindex' ? 'residue-name' :
-                            colorScheme === 'atomindex' ? 'element-symbol' : 'atom-test';
+      // Map color schemes to Mol* color themes
+      let colorThemeName;
+      
+      // For prediction structures, always use atom-test (pLDDT) if bfactor is selected
+      if (structureSource === 'prediction') {
+        // Always use pLDDT coloring for predictions
+        colorThemeName = 'atom-test';
+      } else {
+        // For other cases, map to appropriate color themes
+        switch (colorScheme) {
+          case 'chainname':
+            colorThemeName = 'chain-id';
+            break;
+          case 'residueindex':
+            colorThemeName = 'residue-name';
+            break;
+          case 'atomindex':
+            colorThemeName = 'element-symbol';
+            break;
+          case 'bfactor':
+            colorThemeName = 'atom-test';
+            break;
+          default:
+            colorThemeName = 'chain-id';
+        }
+      }
 
       for (const repr of reprs) {
         await PluginCommands.State.Update(pluginRef.current, {
@@ -313,6 +352,54 @@ const MoleculeViewer = ({
     }
   };
 
+  // Toggle additional viewer controls
+  const [showAdvancedControls, setShowAdvancedControls] = useState(false);
+  const [showAxes, setShowAxes] = useState(false);
+  const [showBoundingBox, setShowBoundingBox] = useState(false);
+  const [showFog, setShowFog] = useState(true);
+  const [showClipping, setShowClipping] = useState(false);
+  
+  // Toggle viewer settings
+  const toggleAxes = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { axes: showAxes ? 'off' : 'on' } } });
+      setShowAxes(!showAxes);
+    } catch (error) {
+      console.error('Toggle axes error:', error);
+    }
+  };
+  
+  const toggleBoundingBox = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { boundingBox: showBoundingBox ? 'off' : 'on' } } });
+      setShowBoundingBox(!showBoundingBox);
+    } catch (error) {
+      console.error('Toggle bounding box error:', error);
+    }
+  };
+  
+  const toggleFog = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ cameraFog: { name: showFog ? 'off' : 'on' } });
+      setShowFog(!showFog);
+    } catch (error) {
+      console.error('Toggle fog error:', error);
+    }
+  };
+  
+  const toggleClipping = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ cameraClipping: { far: showClipping ? 100 : 1 } });
+      setShowClipping(!showClipping);
+    } catch (error) {
+      console.error('Toggle clipping error:', error);
+    }
+  };
+  
   return (
     <div className="flex flex-col h-full">
       <div className="bg-muted/30 border-b px-2 sm:px-4 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-start sm:justify-between gap-2">
@@ -340,6 +427,15 @@ const MoleculeViewer = ({
               <SelectItem value="bfactor">pLDDT</SelectItem>
             </SelectContent>
           </Select>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowAdvancedControls(!showAdvancedControls)} 
+            className="h-8 text-xs"
+          >
+            {showAdvancedControls ? "Hide Controls" : "More Controls"}
+          </Button>
         </div>
         
         <div className="flex flex-wrap items-center gap-2">
@@ -356,6 +452,43 @@ const MoleculeViewer = ({
           )}
         </div>
       </div>
+      
+      {showAdvancedControls && (
+        <div className="bg-muted/20 border-b px-2 sm:px-4 py-2 flex flex-wrap items-center gap-2">
+          <Button 
+            variant={showAxes ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleAxes} 
+            className="h-8 text-xs"
+          >
+            {showAxes ? "Hide Axes" : "Show Axes"}
+          </Button>
+          <Button 
+            variant={showBoundingBox ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleBoundingBox} 
+            className="h-8 text-xs"
+          >
+            {showBoundingBox ? "Hide Box" : "Show Box"}
+          </Button>
+          <Button 
+            variant={showFog ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleFog} 
+            className="h-8 text-xs"
+          >
+            {showFog ? "Fog On" : "Fog Off"}
+          </Button>
+          <Button 
+            variant={showClipping ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleClipping} 
+            className="h-8 text-xs"
+          >
+            {showClipping ? "Clipping On" : "Clipping Off"}
+          </Button>
+        </div>
+      )}
       
       <div className="flex flex-col md:flex-row flex-1">
         <div className="flex-1 h-[300px] md:h-full bg-black/5 relative">

@@ -144,7 +144,7 @@ const MoleculeViewer = ({
         const avgConf = calculateAverageConfidence(structure.data);
         setAverageConfidence(avgConf);
         
-        // Apply representation with bfactor coloring for predictions (pLDDT)
+        // Always use atom-test (pLDDT) coloring for predicted structures
         await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
           type: initialStyle === 'cartoon' ? 'cartoon' : 
                 initialStyle === 'spacefill' ? 'spacefill' :
@@ -163,12 +163,12 @@ const MoleculeViewer = ({
         
         setStructureSource("pdb");
         
-        // Apply representation with initial coloring
         // Apply representation with appropriate coloring based on view type
         const colorTheme = viewType === 'prediction' ? 'atom-test' : // pLDDT for predictions
                           initialColor === 'chainname' ? 'chain-id' : 
                           initialColor === 'residueindex' ? 'residue-name' :
-                          initialColor === 'atomindex' ? 'element-symbol' : 'chain-id';
+                          initialColor === 'atomindex' ? 'element-symbol' : 
+                          initialColor === 'bfactor' ? 'atom-test' : 'chain-id';
         
         await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
           type: initialStyle === 'cartoon' ? 'cartoon' : 
@@ -177,25 +177,42 @@ const MoleculeViewer = ({
           colorTheme: { name: colorTheme }
         });
         
-        if (focusLigand) {
-          // Create ligand-specific structure and representation
-          const ligandStructure = await pluginRef.current.builders.structure.createStructure(model, {
-            name: 'ligand-only'
-          });
-          
-          // Add ball-and-stick representation for ligands
-          await pluginRef.current.builders.structure.representation.addRepresentation(ligandStructure, {
-            type: 'ball-and-stick',
-            colorTheme: { name: 'element-symbol' }
-          });
-          
-          // Focus camera on ligands
+        if (focusLigand || viewType === 'docking') {
+          try {
+            // Create a query for selecting ligands
+            const query = {
+              "kind": "composite",
+              "parts": [
+                { "kind": "atom-property", "property": "isHet" }
+              ]
+            };
+            
+            // Create ligand-specific structure with the query
+            const ligandStructure = await pluginRef.current.builders.structure.createStructure(model, {
+              name: 'ligand-only',
+              params: { query }
+            });
+            
+            // Add ball-and-stick representation for ligands with element coloring
+            await pluginRef.current.builders.structure.representation.addRepresentation(ligandStructure, {
+              type: 'ball-and-stick',
+              colorTheme: { name: 'element-symbol' }
+            });
+            
+            // Focus camera on ligands
+            await PluginCommands.Camera.Focus(pluginRef.current, { 
+              target: ligandStructure.ref 
+            });
+          } catch (ligandError) {
+            console.error('Failed to focus on ligand:', ligandError);
+            // If ligand focus fails, just reset the camera to show the whole structure
+            await PluginCommands.Camera.Reset(pluginRef.current, {});
+          }
+        } else {
+          // Auto-focus the structure
           await PluginCommands.Camera.Reset(pluginRef.current, {});
         }
       }
-      
-      // Auto-focus the structure
-      await PluginCommands.Camera.Reset(pluginRef.current, {});
       
       toast({
         title: "Structure loaded",
@@ -370,12 +387,54 @@ const MoleculeViewer = ({
                       style === 'licorice' ? 'ball-and-stick' : 'surface';
       
       // Use appropriate coloring based on structure source and view type
-      const colorTheme = (structureSource === 'prediction' || viewType === 'prediction') ? 'atom-test' : 'chain-id';
+      let colorTheme;
+      if (structureSource === 'prediction' || viewType === 'prediction') {
+        // Always use pLDDT coloring for predictions
+        colorTheme = 'atom-test';
+      } else {
+        // For PDB structures, use the current color scheme
+        const currentColorSelect = document.querySelector('select[placeholder="Color"]') as HTMLSelectElement;
+        const currentColor = currentColorSelect?.value || initialColor;
+        
+        colorTheme = currentColor === 'chainname' ? 'chain-id' : 
+                    currentColor === 'residueindex' ? 'residue-name' :
+                    currentColor === 'atomindex' ? 'element-symbol' :
+                    currentColor === 'bfactor' ? 'atom-test' : 'chain-id';
+      }
       
       await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
         type: reprType,
         colorTheme: { name: colorTheme }
       });
+      
+      // If in docking view, re-add ligand representation
+      if (viewType === 'docking' || focusLigand) {
+        try {
+          const model = structure.data.models[0];
+          
+          // Create a query for selecting ligands
+          const query = {
+            "kind": "composite",
+            "parts": [
+              { "kind": "atom-property", "property": "isHet" }
+            ]
+          };
+          
+          // Create ligand-specific structure with the query
+          const ligandStructure = await pluginRef.current.builders.structure.createStructure(model, {
+            name: 'ligand-only',
+            params: { query }
+          });
+          
+          // Add ball-and-stick representation for ligands with element coloring
+          await pluginRef.current.builders.structure.representation.addRepresentation(ligandStructure, {
+            type: 'ball-and-stick',
+            colorTheme: { name: 'element-symbol' }
+          });
+        } catch (ligandError) {
+          console.error('Failed to add ligand representation:', ligandError);
+        }
+      }
     } catch (error) {
       console.error('Style change error:', error);
     }
@@ -391,26 +450,43 @@ const MoleculeViewer = ({
 
       // Map color schemes to Mol* color themes
       let colorThemeName;
-      if (colorScheme === 'chainname') {
-        colorThemeName = 'chain-id';
-      } else if (colorScheme === 'residueindex') {
-        colorThemeName = 'residue-name';
-      } else if (colorScheme === 'atomindex') {
-        colorThemeName = 'element-symbol';
-      } else if (colorScheme === 'bfactor' || (structureSource === 'prediction' || viewType === 'prediction')) {
-        colorThemeName = 'atom-test'; // pLDDT coloring for predictions
+      
+      // For prediction structures or prediction view type, always use pLDDT coloring
+      if ((structureSource === 'prediction' || viewType === 'prediction') && colorScheme === 'bfactor') {
+        colorThemeName = 'atom-test';
       } else {
-        colorThemeName = 'chain-id';
+        // For other cases, map to appropriate color themes
+        switch (colorScheme) {
+          case 'chainname':
+            colorThemeName = 'chain-id';
+            break;
+          case 'residueindex':
+            colorThemeName = 'residue-name';
+            break;
+          case 'atomindex':
+            colorThemeName = 'element-symbol';
+            break;
+          case 'bfactor':
+            colorThemeName = 'atom-test';
+            break;
+          default:
+            colorThemeName = 'chain-id';
+        }
       }
 
+      // Update all representations except ligand representations
       for (const repr of reprs) {
-        await PluginCommands.State.Update(pluginRef.current, {
-          state: repr.parent!,
-          tree: repr,
-          params: {
-            colorTheme: { name: colorThemeName }
-          }
-        });
+        // Skip ligand representations (they should always use element-symbol coloring)
+        const isLigandRepr = repr.obj?.label?.includes('ligand-only');
+        if (!isLigandRepr) {
+          await PluginCommands.State.Update(pluginRef.current, {
+            state: repr.parent!,
+            tree: repr,
+            params: {
+              colorTheme: { name: colorThemeName }
+            }
+          });
+        }
       }
     } catch (error) {
       console.error('Color change error:', error);
@@ -611,24 +687,116 @@ const MoleculeViewer = ({
     );
   };
 
+  // Toggle additional viewer controls
+  const [showAdvancedControls, setShowAdvancedControls] = useState(false);
+  const [showAxes, setShowAxes] = useState(false);
+  const [showBoundingBox, setShowBoundingBox] = useState(false);
+  const [showFog, setShowFog] = useState(true);
+  const [showClipping, setShowClipping] = useState(false);
+  
+  // Toggle viewer settings
+  const toggleAxes = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { axes: showAxes ? 'off' : 'on' } } });
+      setShowAxes(!showAxes);
+    } catch (error) {
+      console.error('Toggle axes error:', error);
+    }
+  };
+  
+  const toggleBoundingBox = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { boundingBox: showBoundingBox ? 'off' : 'on' } } });
+      setShowBoundingBox(!showBoundingBox);
+    } catch (error) {
+      console.error('Toggle bounding box error:', error);
+    }
+  };
+  
+  const toggleFog = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ cameraFog: { name: showFog ? 'off' : 'on' } });
+      setShowFog(!showFog);
+    } catch (error) {
+      console.error('Toggle fog error:', error);
+    }
+  };
+  
+  const toggleClipping = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ cameraClipping: { far: showClipping ? 100 : 1 } });
+      setShowClipping(!showClipping);
+    } catch (error) {
+      console.error('Toggle clipping error:', error);
+    }
+  };
+  
+  // Focus on ligand
+  const focusOnLigand = async () => {
+    if (!pluginRef.current) return;
+    try {
+      const structures = pluginRef.current.managers.structure.hierarchy.current.structures;
+      if (structures.length === 0) return;
+      
+      const structure = structures[0];
+      const model = structure.data.models[0];
+      
+      // Create a query for selecting ligands
+      const query = {
+        "kind": "composite",
+        "parts": [
+          { "kind": "atom-property", "property": "isHet" }
+        ]
+      };
+      
+      // Try to focus on ligands
+      try {
+        // Create a selection of ligands
+        const selection = await pluginRef.current.builders.structure.tryCreateSelectionFromQuery(structure, query);
+        
+        if (selection && selection.elementCount > 0) {
+          // Focus camera on the ligand selection
+          await PluginCommands.Camera.Focus(pluginRef.current, { 
+            target: selection,
+            durationMs: 250
+          });
+          return true;
+        }
+      } catch (ligandError) {
+        console.error('Failed to focus on ligand:', ligandError);
+      }
+      
+      // If ligand focus fails, reset the camera view
+      await PluginCommands.Camera.Reset(pluginRef.current, {});
+      return false;
+    } catch (error) {
+      console.error('Focus on ligand error:', error);
+      return false;
+    }
+  };
+  
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-muted/30 border-b px-4 py-2 flex flex-wrap items-center justify-between gap-2">
-        {viewType === "standard" && (
-          <form onSubmit={handleSubmit} className="flex items-center gap-2">
-            <Input
-              value={pdbId}
-              onChange={(e) => setPdbId(e.target.value)}
-              placeholder="Enter PDB ID"
-              className="w-32"
-            />
-            <Button type="submit" variant="outline" size="sm">Load</Button>
-          </form>
-        )}
-        
-        <div className="flex items-center space-x-2">
+      <div className="bg-muted/30 border-b px-2 sm:px-4 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-start sm:justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {viewType === "standard" && (
+            <form onSubmit={handleSubmit} className="flex items-center gap-2">
+              <Input
+                value={pdbId}
+                onChange={(e) => setPdbId(e.target.value)}
+                placeholder="Enter PDB ID"
+                className="w-24 sm:w-32 h-8 text-xs"
+              />
+              <Button type="submit" variant="outline" size="sm" className="h-8 text-xs">Load</Button>
+            </form>
+          )}
+          
           <Select defaultValue={initialStyle} onValueChange={handleStyleChange}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-24 sm:w-32 h-8 text-xs">
               <SelectValue placeholder="Style" />
             </SelectTrigger>
             <SelectContent>
@@ -640,23 +808,87 @@ const MoleculeViewer = ({
           </Select>
           
           <Select defaultValue={initialColor} onValueChange={handleColorChange}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-24 sm:w-32 h-8 text-xs">
               <SelectValue placeholder="Color" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="chainname">Chain</SelectItem>
               <SelectItem value="residueindex">Residue</SelectItem>
               <SelectItem value="atomindex">Atom</SelectItem>
-              <SelectItem value="bfactor">B-factor</SelectItem>
+              <SelectItem value="bfactor">pLDDT</SelectItem>
             </SelectContent>
           </Select>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowAdvancedControls(!showAdvancedControls)} 
+            className="h-8 text-xs"
+          >
+            {showAdvancedControls ? "Hide Controls" : "More Controls"}
+          </Button>
         </div>
         
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" onClick={handleResetView}>Reset View</Button>
-          <Button variant="outline" size="sm" onClick={downloadPrediction}>Download</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleResetView} className="h-8 text-xs">Reset View</Button>
+          {viewType === 'docking' && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={focusOnLigand}
+              className="h-8 text-xs"
+            >
+              Focus Ligand
+            </Button>
+          )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={downloadPrediction}
+            className="h-8 text-xs"
+          >
+            <Download className="w-3 h-3 mr-1" />
+            <span className="hidden sm:inline">Download</span>
+          </Button>
         </div>
       </div>
+      
+      {showAdvancedControls && (
+        <div className="bg-muted/20 border-b px-2 sm:px-4 py-2 flex flex-wrap items-center gap-2">
+          <Button 
+            variant={showAxes ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleAxes} 
+            className="h-8 text-xs"
+          >
+            {showAxes ? "Hide Axes" : "Show Axes"}
+          </Button>
+          <Button 
+            variant={showBoundingBox ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleBoundingBox} 
+            className="h-8 text-xs"
+          >
+            {showBoundingBox ? "Hide Box" : "Show Box"}
+          </Button>
+          <Button 
+            variant={showFog ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleFog} 
+            className="h-8 text-xs"
+          >
+            {showFog ? "Fog On" : "Fog Off"}
+          </Button>
+          <Button 
+            variant={showClipping ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleClipping} 
+            className="h-8 text-xs"
+          >
+            {showClipping ? "Clipping On" : "Clipping Off"}
+          </Button>
+        </div>
+      )}
       
       <div className="flex flex-1">
         {viewType === "docking" ? (
