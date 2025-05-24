@@ -27,8 +27,9 @@ export type Database = {
       jobs: {
         Row: {
           created_at: string
-          id: number
+          id: number | null
           input_sequence: string
+          job_name: string
           model_id: string
           result: string | null
           status: string
@@ -36,8 +37,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          id?: never
+          id?: number | null
           input_sequence: string
+          job_name?: string
           model_id: string
           result?: string | null
           status: string
@@ -45,8 +47,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          id?: never
+          id?: number | null
           input_sequence?: string
+          job_name?: string
           model_id?: string
           result?: string | null
           status?: string
@@ -71,9 +74,6 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
-          subscription: string | null
-          subscription_end_date: string | null
-          subscription_start_date: string | null
           updated_at: string
         }
         Insert: {
@@ -84,9 +84,6 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
-          subscription?: string | null
-          subscription_end_date?: string | null
-          subscription_start_date?: string | null
           updated_at?: string
         }
         Update: {
@@ -97,50 +94,9 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
-          subscription?: string | null
-          subscription_end_date?: string | null
-          subscription_start_date?: string | null
           updated_at?: string
         }
         Relationships: []
-      }
-      transactions: {
-        Row: {
-          created_at: string | null
-          id: string
-          order_id: string
-          payment_id: string | null
-          plan: string
-          status: string
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          order_id: string
-          payment_id?: string | null
-          plan: string
-          status: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          order_id?: string
-          payment_id?: string | null
-          plan?: string
-          status?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "transactions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {

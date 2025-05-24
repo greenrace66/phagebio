@@ -1,4 +1,3 @@
-
 import DemoMoleculeViewer from "@/components/molecule/DemoMoleculeViewer";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -46,7 +45,7 @@ const DemoSection = () => {
                 <DemoMoleculeViewer
                   initialPdbId="1g74"
                   initialStyle="cartoon"
-                  initialColor="chain-id"
+                  initialColor="chainname"
                   focusLigand
                   viewType="docking"
                 />

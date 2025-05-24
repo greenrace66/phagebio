@@ -1,84 +1,28 @@
-
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { useEffect, useRef } from "react";
-import { createPluginUI } from 'molstar/lib/mol-plugin-ui';
-import { DefaultPluginUISpec } from 'molstar/lib/mol-plugin-ui/spec';
-import { Color } from 'molstar/lib/mol-util/color';
-import { ColorNames } from 'molstar/lib/mol-util/color/names';
+import { useEffect, useRef, useRef as useReactRef } from "react";
+import * as NGL from "ngl";
 import { useNglBackground } from "./useNglBackground";
 
 const Hero = () => {
   const viewerRef = useRef<HTMLDivElement>(null);
-  const pluginRef = useRef<any>(null);
+  const stageRef = useReactRef<NGL.Stage|null>(null);
 
   useEffect(() => {
     if (!viewerRef.current) return;
-    
-    const plugin = createPluginUI(viewerRef.current, {
-      ...DefaultPluginUISpec(),
-      layout: {
-        initial: {
-          isExpanded: false,
-          showControls: false,
-          controlsDisplay: 'hidden'
-        }
-      },
-      components: {
-        controls: {
-          left: 'none',
-          right: 'none',
-          top: 'none',
-          bottom: 'none'
-        }
-      }
+    const stage = new NGL.Stage(viewerRef.current);
+    stageRef.current = stage;
+    stage.loadFile("rcsb://1aoi", { defaultRepresentation: true }).then(() => {
+      stage.autoView();
+      stage.setSpin(true);
     });
-    
-    pluginRef.current = plugin;
-    
-    // Load structure from PDB
-    const loadStructure = async () => {
-      try {
-        const data = await plugin.builders.data.download({ 
-          url: 'https://files.rcsb.org/download/1AOI.pdb', 
-          isBinary: false 
-        });
-        
-        const trajectory = await plugin.builders.structure.parseTrajectory(data, 'pdb');
-        const model = await plugin.builders.structure.createModel(trajectory);
-        const structure = await plugin.builders.structure.createStructure(model);
-        
-        // Add cartoon representation
-        await plugin.builders.structure.representation.addRepresentation(structure, {
-          type: 'cartoon',
-          color: 'chain-id',
-          size: 'uniform'
-        });
-        
-        // Set background and spin
-        const canvas = plugin.canvas3d;
-        canvas.setBackground(Color(ColorNames.white));
-        
-        // Enable auto-rotation (spin)
-        plugin.managers.animation.rotate.play();
-        
-        // Reset camera
-        await plugin.canvas3d?.resetCamera();
-        await plugin.canvas3d?.requestAnimation();
-      } catch (error) {
-        console.error('Error loading structure:', error);
-      }
-    };
-    
-    loadStructure();
-    
     return () => {
-      plugin.dispose();
-      pluginRef.current = null;
+      stage.dispose();
+      stageRef.current = null;
     };
   }, []);
 
-  useNglBackground(pluginRef.current);
+  useNglBackground(stageRef.current);
 
   return (
     <section className="py-16 md:py-24 lg:py-32 relative overflow-hidden">
@@ -113,11 +57,7 @@ const Hero = () => {
           
           <div className="flex-1 flex justify-center lg:justify-end">
             <div className="w-full max-w-[500px] aspect-square relative">
-              <div 
-                ref={viewerRef} 
-                className="absolute inset-0 rounded-xl overflow-hidden shadow-lg" 
-                style={{ position: 'absolute', width: '100%', height: '100%' }}
-              />
+              <div ref={viewerRef} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg" />
             </div>
           </div>
         </div>
