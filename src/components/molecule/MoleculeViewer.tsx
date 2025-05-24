@@ -59,7 +59,17 @@ const MoleculeViewer = ({
         viewerRef.current.appendChild(canvas);
 
         // Initialize Mol* plugin
-        const plugin = new PluginContext(DefaultPluginSpec());
+        const spec = {
+          ...DefaultPluginSpec(),
+          layout: {
+            initial: {
+              isExpanded: false,
+              showControls: true,
+              controlsDisplay: 'reactive'
+            }
+          }
+        };
+        const plugin = new PluginContext(spec);
         await plugin.init();
         plugin.initViewer(canvas, viewerRef.current);
         pluginRef.current = plugin;
