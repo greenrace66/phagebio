@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -37,7 +38,7 @@ const ModelDetail = () => {
   const jobId = searchParams.get("job");
   const [sequence, setSequence] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [progress, setProgress] = useState(0); // Ensure it's a number
+  const [progress, setProgress] = useState<number>(0);
   const [result, setResult] = useState<{
     pdbString?: string;
     json?: any;
@@ -141,7 +142,7 @@ const ModelDetail = () => {
       .eq("id", user.id);
 
     setIsLoading(true);
-    setProgress(0); // Ensure it's a number
+    setProgress(0);
     setResult(null);
 
     // Progress simulation

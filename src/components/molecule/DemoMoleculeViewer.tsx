@@ -1,3 +1,4 @@
+
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import * as NGL from "ngl";
+import { createPluginUI } from 'molstar/lib/mol-plugin-ui';
+import { DefaultPluginUISpec } from 'molstar/lib/mol-plugin-ui/spec';
+import { Color } from 'molstar/lib/mol-util/color';
+import { ColorNames } from 'molstar/lib/mol-util/color/names';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
 
 interface MoleculeViewerProps {
@@ -25,7 +28,7 @@ interface MoleculeViewerProps {
   viewType?: "docking" | "prediction" | "standard";
 }
 
-const MoleculeViewer = ({ 
+const DemoMoleculeViewer = ({ 
   initialPdbId = "1crn",
   initialStyle = "cartoon",
   initialColor = "chainname",
@@ -33,7 +36,10 @@ const MoleculeViewer = ({
   viewType = "standard",
 }: MoleculeViewerProps) => {
   const viewerRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<any>(null);
+  const ligandViewerRef = useRef<HTMLDivElement>(null);
+  const pluginRef = useRef<any>(null);
+  const ligandPluginRef = useRef<any>(null);
+  const structureRef = useRef<any>(null);
   const [pdbId, setPdbId] = useState(initialPdbId);
   const { toast } = useToast();
   
@@ -52,9 +58,27 @@ const MoleculeViewer = ({
   useEffect(() => {
     if (!viewerRef.current) return;
 
-    // Initialize NGL Stage
-    const stage = new NGL.Stage(viewerRef.current, { backgroundColor: "white" });
-    stageRef.current = stage;
+    // Initialize Mol* Plugin
+    const plugin = createPluginUI(viewerRef.current, {
+      ...DefaultPluginUISpec(),
+      layout: {
+        initial: {
+          isExpanded: false,
+          showControls: false,
+          controlsDisplay: 'hidden'
+        }
+      },
+      components: {
+        controls: {
+          left: 'none',
+          right: 'none',
+          top: 'none',
+          bottom: 'none'
+        }
+      }
+    });
+    
+    pluginRef.current = plugin;
 
     // Load the protein structure with initial style for non-prediction views
     if (viewType !== "prediction") {
@@ -63,64 +87,213 @@ const MoleculeViewer = ({
 
     // Handle window resize
     const handleResize = () => {
-      stage.handleResize();
+      plugin.canvas3d?.resized();
     };
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      stage.dispose();
+      plugin.dispose();
     };
   }, [initialPdbId, viewType]);
 
-  const calculateAverageConfidence = (component: any) => {
-    if (!component) return null;
+  // Initialize ligand viewer for docking view
+  useEffect(() => {
+    if (viewType === "docking" && ligandViewerRef.current) {
+      // Initialize Mol* Plugin for ligand
+      const plugin = createPluginUI(ligandViewerRef.current, {
+        ...DefaultPluginUISpec(),
+        layout: {
+          initial: {
+            isExpanded: false,
+            showControls: false,
+            controlsDisplay: 'hidden'
+          }
+        },
+        components: {
+          controls: {
+            left: 'none',
+            right: 'none',
+            top: 'none',
+            bottom: 'none'
+          }
+        }
+      });
+      
+      ligandPluginRef.current = plugin;
+      
+      // Load structure but only show ligand
+      loadLigandStructure(initialPdbId);
+      
+      // Handle window resize
+      const handleResize = () => {
+        plugin.canvas3d?.resized();
+      };
+      window.addEventListener('resize', handleResize);
+      
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        plugin.dispose();
+      };
+    }
+  }, [viewType, initialPdbId]);
+
+  const calculateAverageConfidence = (structure: any) => {
+    if (!structure) return null;
     
+    // For Mol*, we'll need to analyze the B-factor values differently
+    // This is a simplified approach to estimate confidence from B-factors
     let totalBfactor = 0;
     let atomCount = 0;
     
-    component.structure.eachAtom((atom: any) => {
-      totalBfactor += atom.bfactor;
-      atomCount++;
-    });
+    try {
+      const model = structure.model;
+      const bFactors = model.atomicConformation.b;
+      
+      for (let i = 0; i < bFactors.length; i++) {
+        totalBfactor += bFactors[i];
+        atomCount++;
+      }
+      
+      return atomCount > 0 ? totalBfactor / atomCount : null;
+    } catch (error) {
+      console.error("Error calculating confidence:", error);
+      return null;
+    }
+  };
+
+  const loadLigandStructure = async (id: string) => {
+    if (!ligandPluginRef.current) return;
     
-    return atomCount > 0 ? totalBfactor / atomCount : null;
+    try {
+      await ligandPluginRef.current.clear();
+      
+      // Load from PDB
+      const data = await ligandPluginRef.current.builders.data.download({ 
+        url: `https://files.rcsb.org/download/${id.toUpperCase()}.pdb`, 
+        isBinary: false 
+      });
+      
+      const trajectory = await ligandPluginRef.current.builders.structure.parseTrajectory(data, 'pdb');
+      const model = await ligandPluginRef.current.builders.structure.createModel(trajectory);
+      const structure = await ligandPluginRef.current.builders.structure.createStructure(model);
+      
+      // Add ball-and-stick representation for ligands only
+      await ligandPluginRef.current.builders.structure.representation.addRepresentation(structure, {
+        type: 'ball-and-stick',
+        color: 'element-symbol',
+        size: 'uniform',
+        typeParams: { scale: 0.8 },
+        selectQuery: { 
+          atomGroups: [{ 'atom-test': q => q.isHetero && !q.isWater }]
+        }
+      });
+      
+      // Set background
+      const canvas = ligandPluginRef.current.canvas3d;
+      canvas.setBackground(Color(ColorNames.white));
+      
+      // Focus on ligands
+      await ligandPluginRef.current.managers.camera.focusLoci(
+        ligandPluginRef.current.managers.structure.selection.toLoci({ 
+          entityIds: ['ligand']
+        })
+      );
+      
+      await ligandPluginRef.current.canvas3d?.resetCamera();
+      await ligandPluginRef.current.canvas3d?.requestAnimation();
+    } catch (error) {
+      console.error('Error loading ligand structure:', error);
+    }
   };
 
   const loadStructure = async (id: string, pdbData?: string) => {
-    if (!stageRef.current) return;
+    if (!pluginRef.current) return;
     
     try {
       // Clear existing structures
-      stageRef.current.removeAllComponents();
+      await pluginRef.current.clear();
       
-      let component;
+      let structure;
+      
       if (pdbData) {
-        component = await stageRef.current.loadFile(
-          new Blob([pdbData], {type: 'text/plain'}),
-          { ext: 'pdb' }
-        );
+        // Load from provided PDB data
+        const data = await pluginRef.current.builders.data.rawData({ 
+          data: pdbData, 
+          label: 'PDB' 
+        });
+        
+        const trajectory = await pluginRef.current.builders.structure.parseTrajectory(data, 'pdb');
+        const model = await pluginRef.current.builders.structure.createModel(trajectory);
+        structure = await pluginRef.current.builders.structure.createStructure(model);
+        
         setStructureSource("prediction");
-        
-        // Calculate average confidence for predicted structures
-        const avgConf = calculateAverageConfidence(component);
-        setAverageConfidence(avgConf);
-        
-        // Use bfactor coloring for predictions
-        component.addRepresentation(initialStyle, { color: 'bfactor' });
       } else {
-        component = await stageRef.current.loadFile(`rcsb://${id}`);
+        // Load from PDB ID
+        const data = await pluginRef.current.builders.data.download({ 
+          url: `https://files.rcsb.org/download/${id.toUpperCase()}.pdb`, 
+          isBinary: false 
+        });
+        
+        const trajectory = await pluginRef.current.builders.structure.parseTrajectory(data, 'pdb');
+        const model = await pluginRef.current.builders.structure.createModel(trajectory);
+        structure = await pluginRef.current.builders.structure.createStructure(model);
+        
         setStructureSource("pdb");
-        component.addRepresentation(initialStyle, { color: initialColor });
       }
       
-      if (focusLigand) {
-        // Highlight ligand atoms only
-        component.addRepresentation('ball+stick', { sele: 'hetero' });
-        component.autoView('hetero');
-      } else {
-        component.autoView();
+      structureRef.current = structure;
+      
+      // Calculate average confidence for predicted structures
+      if (pdbData) {
+        const avgConf = calculateAverageConfidence(structure);
+        setAverageConfidence(avgConf);
       }
+      
+      // Set up representation based on initialStyle and configuration
+      if (pdbData) {
+        // Use bfactor coloring for predictions
+        await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
+          type: initialStyle,
+          color: 'bfactor',
+          size: 'uniform'
+        });
+      } else {
+        // Use specified coloring for PDB structures
+        await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
+          type: initialStyle,
+          color: initialColor,
+          size: 'uniform'
+        });
+        
+        if (focusLigand) {
+          // Add additional representation for ligands
+          await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
+            type: 'ball-and-stick',
+            color: 'element-symbol',
+            size: 'uniform',
+            typeParams: { scale: 0.8 },
+            selectQuery: { 
+              atomGroups: [{ 'atom-test': q => q.isHetero && !q.isWater }]
+            }
+          });
+          
+          // Focus on ligands
+          await pluginRef.current.managers.camera.focusLoci(
+            pluginRef.current.managers.structure.selection.toLoci({ 
+              entityIds: ['ligand']
+            })
+          );
+        }
+      }
+      
+      // Set background and other canvas properties
+      const canvas = pluginRef.current.canvas3d;
+      canvas.setBackground(Color(ColorNames.white));
+      
+      // Reset camera view
+      await pluginRef.current.canvas3d?.resetCamera();
+      await pluginRef.current.canvas3d?.requestAnimation();
       
       toast({
         title: "Structure loaded",
@@ -129,6 +302,7 @@ const MoleculeViewer = ({
           : `Successfully loaded PDB ID: ${id}`,
       });
     } catch (error) {
+      console.error('Error loading structure:', error);
       toast({
         title: "Error",
         description: "Failed to load structure. Please check your input.",
@@ -215,7 +389,9 @@ const MoleculeViewer = ({
     } catch (error) {
       clearInterval(progressInterval);
       setProgress(0);
-      setResult({ error: error instanceof Error ? error.message : "Unknown error occurred" });
+      setResult({ 
+        error: error instanceof Error ? error.message : "Unknown error occurred" 
+      });
       toast({
         title: "Error",
         description: "Failed to connect to the prediction service.",
@@ -264,7 +440,11 @@ const MoleculeViewer = ({
           document.body.removeChild(a);
           URL.revokeObjectURL(objUrl);
         } catch (err: any) {
-          toast({ title: 'Download Failed', description: err.message, variant: 'destructive' });
+          toast({ 
+            title: 'Download Failed', 
+            description: err.message, 
+            variant: 'destructive' 
+          });
         }
       };
       downloadPdb();
@@ -273,91 +453,71 @@ const MoleculeViewer = ({
 
   // Handle style changes
   const handleStyleChange = (style: string) => {
-    const component = stageRef.current?.compList[0];
-    if (!component) return;
-
-    component.removeAllRepresentations();
-    component.addRepresentation(style, {
-      color: stageRef.current.parameters.colorScheme
+    if (!structureRef.current || !pluginRef.current) return;
+    
+    // Remove current representations
+    pluginRef.current.builders.structure.representation.removeAll();
+    
+    // Add new representation with current color scheme
+    const colorScheme = structureSource === "prediction" ? 'bfactor' : initialColor;
+    
+    pluginRef.current.builders.structure.representation.addRepresentation(structureRef.current, {
+      type: style,
+      color: colorScheme,
+      size: 'uniform'
     });
+    
+    // Re-add ligand representation if needed
+    if (focusLigand && structureSource === "pdb") {
+      pluginRef.current.builders.structure.representation.addRepresentation(structureRef.current, {
+        type: 'ball-and-stick',
+        color: 'element-symbol',
+        size: 'uniform',
+        typeParams: { scale: 0.8 },
+        selectQuery: { 
+          atomGroups: [{ 'atom-test': q => q.isHetero && !q.isWater }]
+        }
+      });
+    }
   };
 
   // Handle color scheme changes
   const handleColorChange = (colorScheme: string) => {
-    const component = stageRef.current?.compList[0];
-    if (!component) return;
-
-    const currentRepresentation = component.reprList[0];
-    if (currentRepresentation) {
-      currentRepresentation.setParameters({ color: colorScheme });
+    if (!structureRef.current || !pluginRef.current) return;
+    
+    // Get current representation type from state
+    const reprTypes = pluginRef.current.managers.structure.component.state.options.repr;
+    const currentType = reprTypes[0]?.type || initialStyle;
+    
+    // Remove current representations
+    pluginRef.current.builders.structure.representation.removeAll();
+    
+    // Add new representation with new color scheme
+    pluginRef.current.builders.structure.representation.addRepresentation(structureRef.current, {
+      type: currentType,
+      color: colorScheme,
+      size: 'uniform'
+    });
+    
+    // Re-add ligand representation if needed
+    if (focusLigand && structureSource === "pdb") {
+      pluginRef.current.builders.structure.representation.addRepresentation(structureRef.current, {
+        type: 'ball-and-stick',
+        color: 'element-symbol',
+        size: 'uniform',
+        typeParams: { scale: 0.8 },
+        selectQuery: { 
+          atomGroups: [{ 'atom-test': q => q.isHetero && !q.isWater }]
+        }
+      });
     }
   };
 
   // Reset view
   const handleResetView = () => {
-    const component = stageRef.current?.compList[0];
-    if (component) {
-      component.autoView();
-    }
-  };
-
-  // Render 3D ligand view for docking tab
-  const renderLigandViewer = () => {
-    const ligandViewerRef = useRef<HTMLDivElement>(null);
-    const ligandStageRef = useRef<any>(null);
-    
-    useEffect(() => {
-      if (!ligandViewerRef.current) return;
-      
-      // Initialize NGL Stage for ligand
-      const stage = new NGL.Stage(ligandViewerRef.current, { backgroundColor: "white" });
-      ligandStageRef.current = stage;
-      
-      // Load the protein structure but only show ligand
-      const loadLigand = async () => {
-        try {
-          const component = await stage.loadFile(`rcsb://${initialPdbId}`);
-          // Only show ligand (hetero atoms)
-          if (component) {
-            component.addRepresentation('ball+stick', { 
-              sele: 'hetero and not water',
-              scale: 0.8
-            });
-            component.autoView();
-          }
-        } catch (error) {
-          console.error("Failed to load ligand:", error);
-        }
-      };
-      
-      loadLigand();
-      
-      // Handle window resize
-      const handleResize = () => {
-        stage.handleResize();
-      };
-      window.addEventListener('resize', handleResize);
-      
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        stage.dispose();
-      };
-    }, [initialPdbId]);
-    
-    return (
-      <div className="p-4 space-y-4">
-        <h3 className="text-lg font-medium">Ligand 3D Structure</h3>
-        <div className="bg-muted/30 p-4 rounded-md">
-          <div className="aspect-square max-w-[400px] mx-auto relative">
-            <div ref={ligandViewerRef} className="absolute inset-0" />
-          </div>
-          <div className="mt-4 text-sm text-muted-foreground">
-            <p>PDB ID: {initialPdbId}</p>
-            <p>Showing 3D structure of ligand only</p>
-          </div>
-        </div>
-      </div>
-    );
+    if (!pluginRef.current) return;
+    pluginRef.current.canvas3d?.resetCamera();
+    pluginRef.current.canvas3d?.requestAnimation();
   };
 
   // Render sequence input for structure prediction similar to ModelDetail.tsx
@@ -482,9 +642,9 @@ const MoleculeViewer = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="cartoon">Cartoon</SelectItem>
+              <SelectItem value="ball-and-stick">Stick</SelectItem>
               <SelectItem value="spacefill">Sphere</SelectItem>
-              <SelectItem value="licorice">Stick</SelectItem>
-              <SelectItem value="surface">Surface</SelectItem>
+              <SelectItem value="molecular-surface">Surface</SelectItem>
             </SelectContent>
           </Select>
           
@@ -493,9 +653,9 @@ const MoleculeViewer = ({
               <SelectValue placeholder="Color" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="chainname">Chain</SelectItem>
-              <SelectItem value="residueindex">Residue</SelectItem>
-              <SelectItem value="atomindex">Atom</SelectItem>
+              <SelectItem value="chain-id">Chain</SelectItem>
+              <SelectItem value="residue-index">Residue</SelectItem>
+              <SelectItem value="element-symbol">Atom</SelectItem>
               <SelectItem value="bfactor">B-factor</SelectItem>
             </SelectContent>
           </Select>
@@ -511,10 +671,29 @@ const MoleculeViewer = ({
         {viewType === "docking" ? (
           <div className="flex flex-col md:flex-row w-full">
             <div className="w-full md:w-1/2 md:border-r border-b md:border-b-0">
-              {renderLigandViewer()}
+              <div className="p-4 space-y-4">
+                <h3 className="text-lg font-medium">Ligand 3D Structure</h3>
+                <div className="bg-muted/30 p-4 rounded-md">
+                  <div className="aspect-square max-w-[400px] mx-auto relative">
+                    <div 
+                      ref={ligandViewerRef} 
+                      className="absolute inset-0" 
+                      style={{ position: 'absolute', width: '100%', height: '100%' }}
+                    />
+                  </div>
+                  <div className="mt-4 text-sm text-muted-foreground">
+                    <p>PDB ID: {initialPdbId}</p>
+                    <p>Showing 3D structure of ligand only</p>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="w-full md:w-1/2 h-[300px] md:h-auto bg-black/5 relative">
-              <div ref={viewerRef} className="absolute inset-0" />
+              <div 
+                ref={viewerRef} 
+                className="absolute inset-0" 
+                style={{ position: 'absolute', width: '100%', height: '100%' }}
+              />
             </div>
           </div>
         ) : viewType === "prediction" ? (
@@ -523,12 +702,20 @@ const MoleculeViewer = ({
               {renderSequenceInput()}
             </div>
             <div className="w-full md:w-2/3 h-[300px] md:h-auto bg-black/5 relative">
-              <div ref={viewerRef} className="absolute inset-0" />
+              <div 
+                ref={viewerRef} 
+                className="absolute inset-0" 
+                style={{ position: 'absolute', width: '100%', height: '100%' }}
+              />
             </div>
           </div>
         ) : (
           <div className="flex-1 h-full bg-black/5 relative">
-            <div ref={viewerRef} className="absolute inset-0" />
+            <div 
+              ref={viewerRef} 
+              className="absolute inset-0" 
+              style={{ position: 'absolute', width: '100%', height: '100%' }}
+            />
           </div>
         )}
       </div>
@@ -536,4 +723,4 @@ const MoleculeViewer = ({
   );
 };
 
-export default MoleculeViewer;
+export default DemoMoleculeViewer;
