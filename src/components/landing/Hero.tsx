@@ -15,6 +15,7 @@ const Hero = () => {
   useEffect(() => {
     if (!viewerRef.current) return;
     
+    // Create the plugin instance - createPluginUI returns a Plugin instance directly, not a Promise
     const plugin = createPluginUI(viewerRef.current, {
       ...DefaultPluginUISpec(),
       layout: {
@@ -39,6 +40,7 @@ const Hero = () => {
     // Load structure from PDB
     const loadStructure = async () => {
       try {
+        // Plugin instance has builders directly, not as a Promise
         const data = await plugin.builders.data.download({ 
           url: 'https://files.rcsb.org/download/1AOI.pdb', 
           isBinary: false 
@@ -73,6 +75,7 @@ const Hero = () => {
     loadStructure();
     
     return () => {
+      // Clean up the plugin instance
       plugin.dispose();
       pluginRef.current = null;
     };

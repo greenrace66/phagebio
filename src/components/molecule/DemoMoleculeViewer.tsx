@@ -58,7 +58,7 @@ const DemoMoleculeViewer = ({
   useEffect(() => {
     if (!viewerRef.current) return;
 
-    // Initialize Mol* Plugin
+    // Initialize Mol* Plugin - createPluginUI returns a Plugin instance directly
     const plugin = createPluginUI(viewerRef.current, {
       ...DefaultPluginUISpec(),
       layout: {
@@ -100,7 +100,7 @@ const DemoMoleculeViewer = ({
   // Initialize ligand viewer for docking view
   useEffect(() => {
     if (viewType === "docking" && ligandViewerRef.current) {
-      // Initialize Mol* Plugin for ligand
+      // Initialize Mol* Plugin for ligand - createPluginUI returns a Plugin instance directly
       const plugin = createPluginUI(ligandViewerRef.current, {
         ...DefaultPluginUISpec(),
         layout: {

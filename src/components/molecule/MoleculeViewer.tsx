@@ -50,7 +50,7 @@ const MoleculeViewer = ({
   useEffect(() => {
     if (!viewerRef.current) return;
 
-    // Initialize Mol* Plugin
+    // Initialize Mol* Plugin - createPluginUI returns a Plugin instance directly
     const plugin = createPluginUI(viewerRef.current, {
       ...DefaultPluginUISpec(),
       layout: {
