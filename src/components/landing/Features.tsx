@@ -1,4 +1,3 @@
-
 import { 
   Book, 
   FileText, 
@@ -7,7 +6,6 @@ import {
   Check
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
 const Features = () => {
@@ -15,31 +13,27 @@ const Features = () => {
     {
       icon: <Search className="h-10 w-10 text-biostruct-500" />,
       title: "Structure Prediction",
-      description: "Predict protein structures from sequences using state-of-the-art deep learning models.",
-      link: "/models"
+      description: "Predict protein structures from sequences using state-of-the-art deep learning models."
     },
     {
       icon: <Database className="h-10 w-10 text-molecular-500" />,
       title: "Pocket Detection",
-      description: "Automatically identify and analyze potential binding sites and pockets in protein structures.",
-      link: "/models"
+      description: "Automatically identify and analyze potential binding sites and pockets in protein structures."
     },
     {
       icon: <FileText className="h-10 w-10 text-biostruct-500" />,
       title: "Molecular Docking",
-      description: "Screen compounds against protein targets to identify potential binding candidates.",
-      link: "/models"
+      description: "Screen compounds against protein targets to identify potential binding candidates."
     },
     {
       icon: <Book className="h-10 w-10 text-molecular-500" />,
       title: "Interactive Visualization",
-      description: "Explore 3D molecular structures with our intuitive browser-based visualization tools.",
-      link: "/models"
+      description: "Explore 3D molecular structures with our intuitive browser-based visualization tools."
     }
   ];
 
   return (
-    <section className="py-16 bg-muted/50">
+    <section id="features" className="py-16 bg-muted/50">
       <div className="container px-4 md:px-6">
         <div className="flex flex-col items-center text-center space-y-4 mb-12">
           <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
@@ -52,18 +46,13 @@ const Features = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.map((feature, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow duration-200 group">
+            <Card key={index}>
               <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                <div className="p-2 rounded-full bg-muted group-hover:bg-muted/80 transition-colors">
+                <div className="p-2 rounded-full bg-muted">
                   {feature.icon}
                 </div>
                 <h3 className="text-xl font-semibold">{feature.title}</h3>
                 <p className="text-muted-foreground">{feature.description}</p>
-                <Button variant="outline" size="sm" asChild className="mt-auto">
-                  <Link to={feature.link}>
-                    Explore
-                  </Link>
-                </Button>
               </CardContent>
             </Card>
           ))}
@@ -92,11 +81,12 @@ const Features = () => {
               </ul>
             </div>
             <div className="flex-shrink-0">
-              <Button className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-biostruct-600 transition-colors" asChild>
-                <Link to="/login">
-                  Sign Up Free
-                </Link>
-              </Button>
+              <Link 
+                to="/login?tab=signup" 
+                className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-biostruct-600 transition-colors inline-block text-center"
+              >
+                Sign Up Free
+              </Link>
             </div>
           </div>
         </div>
