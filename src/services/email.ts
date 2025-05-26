@@ -1,19 +1,33 @@
+
 import emailjs from '@emailjs/browser';
-import { EMAILJS_CONFIG } from '../config/emailjs';
-import { FormData } from '../types';
 
-export const sendEmail = async (formData: FormData) => {
-  const templateParams = {
-    from_name: formData.name,
-    from_email: formData.email,
-    message: formData.message,
-    to_email: EMAILJS_CONFIG.toEmail,
-  };
+interface ContactFormData {
+  name: string;
+  email: string;
+  message: string;
+}
 
-  return emailjs.send(
-    EMAILJS_CONFIG.serviceId,
-    EMAILJS_CONFIG.templateId,
-    templateParams,
-    EMAILJS_CONFIG.publicKey
-  );
+export const sendContactEmail = async (formData: ContactFormData): Promise<boolean> => {
+  try {
+    // These would normally come from environment variables
+    const serviceId = 'your_service_id';
+    const templateId = 'your_template_id';
+    const publicKey = 'your_public_key';
+
+    const result = await emailjs.send(
+      serviceId,
+      templateId,
+      {
+        from_name: formData.name,
+        from_email: formData.email,
+        message: formData.message,
+      },
+      publicKey
+    );
+
+    return result.status === 200;
+  } catch (error) {
+    console.error('Email sending failed:', error);
+    return false;
+  }
 };

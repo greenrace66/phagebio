@@ -88,12 +88,19 @@ const ModelDetail = () => {
     try {
       const cleanedSeq = cleanSequence(sequence);
       
+      // Prepare headers with authorization for models that need it
+      const headers = {
+        ...model.headers
+      };
+      
+      // Add authorization header for models that require it
+      if (model.id === 'alphafold2') {
+        headers['authorization'] = `Bearer ${apiKey}`;
+      }
+      
       const options = {
         method: 'POST',
-        headers: {
-          ...model.headers,
-          'authorization': `Bearer ${apiKey}`
-        },
+        headers,
         body: JSON.stringify(model.requestBody(cleanedSeq))
       };
 
