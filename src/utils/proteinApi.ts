@@ -1,7 +1,6 @@
 import { toast } from "@/hooks/use-toast";
 
-// ESMFold API endpoint
-const ESMFOLD_API_URL = "/api/esmfold";
+import { ModelConfig } from "@/config/models";
 
 // Function to validate protein sequence (only allow valid amino acids)
 export const validateSequence = (sequence: string): boolean => {
@@ -25,10 +24,11 @@ export const cleanSequence = (sequence: string): string => {
     .toUpperCase();
 };
 
-// Function to predict protein structure using ESMFold API
+// Function to predict protein structure using any configured model
 export const predictStructure = async (
   sequence: string,
   apiKey: string,
+  modelConfig: ModelConfig
 ): Promise<{ success: boolean; data?: string; error?: string; json?: any }> => {
   try {
     if (!validateSequence(sequence)) {
@@ -54,20 +54,29 @@ export const predictStructure = async (
       };
     }
 
-    // Call to ESMFold API - Updated to match the exact format provided
-    const options = {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'content-type': 'application/json',
-        'authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        sequence: cleanedSeq
-      })
+    // Prepare request body based on model configuration
+    let requestBody: any = {
+      sequence: cleanedSeq
+    };
+    
+    // Add model-specific request body parameters
+    if (modelConfig.requestBody) {
+      requestBody = { ...requestBody, ...modelConfig.requestBody };
+    }
+
+    // Prepare headers with authorization
+    const headers = {
+      ...modelConfig.headers,
+      'authorization': `Bearer ${apiKey}`
     };
 
-    const response = await fetch(ESMFOLD_API_URL, options);
+    const options = {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody)
+    };
+
+    const response = await fetch(modelConfig.apiEndpoint, options);
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -78,9 +87,13 @@ export const predictStructure = async (
     }
 
     const data = await response.json();
+    
+    // Handle different response formats
+    let pdbString = data.pdb_string || data.pdbs?.[0] || data.data;
+    
     return { 
       success: true, 
-      data: data.pdb_string,
+      data: pdbString,
       json: data // Include the raw response
     };
   } catch (error) {

@@ -1,7 +1,7 @@
 
 import Navbar from "@/components/navigation/Navbar";
 import Hero from "@/components/landing/Hero";
-import Features from "@/components/landing/Features";
+import Features from "@/pages/Features";
 import DemoSection from "@/components/landing/DemoSection";
 import Footer from "@/components/landing/Footer";
 

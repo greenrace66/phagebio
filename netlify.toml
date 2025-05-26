@@ -5,6 +5,12 @@
   force  = true
 
 [[redirects]]
+  from = "/api/alphafold2"
+  to   = "https://health.api.nvidia.com/v1/biology/deepmind/alphafold2"
+  status = 200
+  force  = true
+
+[[redirects]]
   from = "/api/*"
   to   = "/.netlify/functions/:splat"
   status = 200
@@ -20,4 +26,3 @@
   command    = "bun dev"
   port       = 8888
   targetPort = 8080
-  functions  = "src/app/api"

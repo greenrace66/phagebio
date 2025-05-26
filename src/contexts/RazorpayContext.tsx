@@ -117,7 +117,7 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
             });
           
           if (isVerified) {
-              toast.success(`Successfully purchased ${credits} credits!`);
+              toast.success(`Payment successful! ${credits} credits added to your account.`);
               setIsProcessing(false);
             return true;
           } else {
@@ -127,7 +127,7 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
             }
           } catch (error) {
             console.error('Payment verification error:', error);
-            toast.error('Payment verification failed. Please contact support.');
+            toast.error('Payment failed. Please try again or contact support.');
             setIsProcessing(false);
             return false;
           }

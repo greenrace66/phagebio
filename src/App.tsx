@@ -16,6 +16,7 @@ import Jobs from "./pages/Jobs";
 import Profile from "./pages/Profile";
 import Account from "./pages/Account";
 import Contact from "./pages/Contact";
+import Features from "./pages/Features";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/account" element={<Account />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="*" element={<NotFound />} />
+              <Route path="/features" element={<Features />} />
               </Routes>
             </BrowserRouter>
           </TooltipProvider>

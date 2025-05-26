@@ -15,18 +15,9 @@ import MoleculeViewer from "@/components/molecule/MoleculeViewer";
 import { ArrowLeft, Send, Download, Share, FileCode, Loader2, FileText } from "lucide-react";
 import { predictStructure, validateSequence, cleanSequence } from "@/utils/proteinApi";
 import { supabase } from "@/integrations/supabase/client";
+import { getModelConfig } from "@/config/models";
 
-const models = {
-  esmfold: {
-    name: "ESMFold",
-    description: "Fastest protein structure prediction model",
-    icon: <FileCode className="h-6 w-6 text-biostruct-500" />,
-    tag: "Structure Prediction",
-    apiEndpoint: "https://health.api.nvidia.com/v1/biology/nvidia/esmfold",
-    disclaimer: "COST : 1 credit",
-    exampleSequence: "FVNQHLCGSHLVEALYLVCGERGFFYTPKA"
-  }
-};
+
 
 const ModelDetail = () => {
   const { modelId } = useParams();
@@ -63,7 +54,7 @@ const ModelDetail = () => {
   }, [jobId, user]);
 
   // Check if the model exists
-  const model = modelId ? models[modelId as keyof typeof models] : null;
+  const model = modelId ? getModelConfig(modelId) : null;
 
   if (!model) {
     return (
@@ -157,7 +148,7 @@ const ModelDetail = () => {
       // In a production app, this should come from environment variables or user input
       const apiKey = "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";
       
-      const result = await predictStructure(sequence, apiKey);
+      const result = await predictStructure(sequence, apiKey, model);
       console.log('API Response:', result);
 
       clearInterval(progressInterval);
@@ -178,7 +169,7 @@ const ModelDetail = () => {
         // Save job record
         const { error: insertError } = await supabase.from("jobs").insert({
           user_id: user.id,
-          model_id: modelId!,
+          model_id: model.id,
           input_sequence: sequence,
           status: "success",
           result: pdbString
@@ -194,7 +185,7 @@ const ModelDetail = () => {
         // Save failed job
         const { error: insertError } = await supabase.from("jobs").insert({
           user_id: user.id,
-          model_id: modelId!,
+          model_id: model.id,
           input_sequence: sequence,
           status: "failed",
           result: result.error

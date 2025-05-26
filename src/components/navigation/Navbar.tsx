@@ -92,6 +92,11 @@ const Navbar = () => {
   const NavLinks = () => (
     <ul className={`flex ${isMobile ? "flex-col space-y-4" : "space-x-6"}`}>
       <li>
+        <Link to="/features" className="text-sm font-medium hover:text-primary transition-colors">
+          Features
+        </Link>
+      </li>
+      <li>
         <Link to="/pricing" className="text-sm font-medium hover:text-primary transition-colors">
           Pricing
         </Link>

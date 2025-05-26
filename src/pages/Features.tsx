@@ -6,6 +6,7 @@ import {
   Check
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 
 const Features = () => {
   const features = [
@@ -32,7 +33,7 @@ const Features = () => {
   ];
 
   return (
-    <section className="py-16 bg-muted/50">
+    <section id="features" className="py-16 bg-muted/50">
       <div className="container px-4 md:px-6">
         <div className="flex flex-col items-center text-center space-y-4 mb-12">
           <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
@@ -67,7 +68,7 @@ const Features = () => {
               <ul className="space-y-2 text-left">
                 <li className="flex items-center gap-2">
                   <Check className="h-5 w-5 text-molecular-600" />
-                  <span>100 credits per month</span>
+                  <span>10 credits per day</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-5 w-5 text-molecular-600" />
@@ -80,9 +81,12 @@ const Features = () => {
               </ul>
             </div>
             <div className="flex-shrink-0">
-              <button className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-biostruct-600 transition-colors">
+              <Link 
+                to="/login?tab=signup" 
+                className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-biostruct-600 transition-colors inline-block text-center"
+              >
                 Sign Up Free
-              </button>
+              </Link>
             </div>
           </div>
         </div>
