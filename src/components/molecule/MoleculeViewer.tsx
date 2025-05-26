@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +17,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DefaultPluginSpec } from 'molstar/lib/mol-plugin/spec';
 import { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { PluginCommands } from 'molstar/lib/mol-plugin/commands';
+import { StateSelection } from 'molstar/lib/mol-state';
+import { StructureRepresentationPresetProvider } from 'molstar/lib/mol-plugin-state/builder/structure/representation-preset';
+import { ColorTheme } from 'molstar/lib/mol-theme/color';
+import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
 import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
 
@@ -62,7 +65,7 @@ const MoleculeViewer = ({
             initial: {
               isExpanded: false,
               showControls: true,
-              controlsDisplay: 'reactive' as const
+              controlsDisplay: 'reactive'
             }
           }
         };
@@ -140,8 +143,10 @@ const MoleculeViewer = ({
       
       // Apply representation with bfactor coloring for predictions
       await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-        type: 'cartoon',
-        colorTheme: { name: 'atom-test' }
+        type: initialStyle === 'cartoon' ? 'cartoon' : 
+              initialStyle === 'spacefill' ? 'spacefill' :
+              initialStyle === 'licorice' ? 'ball-and-stick' : 'surface',
+        colorTheme: { name: 'atom-test' } // Use b-factor coloring for pLDDT
       });
       
       // Auto-focus the structure
@@ -255,16 +260,43 @@ const MoleculeViewer = ({
     if (!pluginRef.current) return;
 
     try {
-      // Get current structures
+      // Get current structure
       const structures = pluginRef.current.managers.structure.hierarchy.current.structures;
       if (structures.length === 0) return;
 
       const structure = structures[0];
       
-      // Clear existing representations and add new one
-      await pluginRef.current.clear();
-      await loadStructure(pdb || prediction.pdbData || '');
+      // Remove existing representations
+      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
+      for (const repr of reprs) {
+        await PluginCommands.State.RemoveObject(pluginRef.current, { state: repr.parent!, ref: repr.transform.ref });
+      }
+
+      // Add new representation
+      const reprType = style === 'cartoon' ? 'cartoon' : 
+                      style === 'spacefill' ? 'spacefill' :
+                      style === 'licorice' ? 'ball-and-stick' : 'surface';
       
+      // Use appropriate coloring based on structure source
+      let colorTheme;
+      if (structureSource === 'prediction') {
+        // Always use pLDDT coloring for predictions
+        colorTheme = 'atom-test';
+      } else {
+        // For PDB structures, use the current color scheme
+        const currentColorSelect = document.querySelector('select[placeholder="Color"]') as HTMLSelectElement;
+        const currentColor = currentColorSelect?.value || 'bfactor';
+        
+        colorTheme = currentColor === 'chainname' ? 'chain-id' : 
+                    currentColor === 'residueindex' ? 'residue-name' :
+                    currentColor === 'atomindex' ? 'element-symbol' :
+                    currentColor === 'bfactor' ? 'atom-test' : 'chain-id';
+      }
+      
+      await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
+        type: reprType,
+        colorTheme: { name: colorTheme }
+      });
     } catch (error) {
       console.error('Style change error:', error);
     }
@@ -273,8 +305,50 @@ const MoleculeViewer = ({
   // Handle color scheme changes
   const handleColorChange = async (colorScheme: string) => {
     if (!pluginRef.current) return;
-    // Simplified color handling
-    console.log('Color scheme changed to:', colorScheme);
+
+    try {
+      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
+      if (reprs.length === 0) return;
+
+      // Map color schemes to Mol* color themes
+      let colorThemeName;
+      
+      // For prediction structures, always use atom-test (pLDDT) if bfactor is selected
+      if (structureSource === 'prediction') {
+        // Always use pLDDT coloring for predictions
+        colorThemeName = 'atom-test';
+      } else {
+        // For other cases, map to appropriate color themes
+        switch (colorScheme) {
+          case 'chainname':
+            colorThemeName = 'chain-id';
+            break;
+          case 'residueindex':
+            colorThemeName = 'residue-name';
+            break;
+          case 'atomindex':
+            colorThemeName = 'element-symbol';
+            break;
+          case 'bfactor':
+            colorThemeName = 'atom-test';
+            break;
+          default:
+            colorThemeName = 'chain-id';
+        }
+      }
+
+      for (const repr of reprs) {
+        await PluginCommands.State.Update(pluginRef.current, {
+          state: repr.parent!,
+          tree: repr,
+          params: {
+            colorTheme: { name: colorThemeName }
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Color change error:', error);
+    }
   };
 
   // Reset view
@@ -290,6 +364,51 @@ const MoleculeViewer = ({
 
   // Toggle additional viewer controls
   const [showAdvancedControls, setShowAdvancedControls] = useState(false);
+  const [showAxes, setShowAxes] = useState(false);
+  const [showBoundingBox, setShowBoundingBox] = useState(false);
+  const [showFog, setShowFog] = useState(true);
+  const [showClipping, setShowClipping] = useState(false);
+  
+  // Toggle viewer settings
+  const toggleAxes = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { axes: showAxes ? 'off' : 'on' } } });
+      setShowAxes(!showAxes);
+    } catch (error) {
+      console.error('Toggle axes error:', error);
+    }
+  };
+  
+  const toggleBoundingBox = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { boundingBox: showBoundingBox ? 'off' : 'on' } } });
+      setShowBoundingBox(!showBoundingBox);
+    } catch (error) {
+      console.error('Toggle bounding box error:', error);
+    }
+  };
+  
+  const toggleFog = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ cameraFog: { name: showFog ? 'off' : 'on' } });
+      setShowFog(!showFog);
+    } catch (error) {
+      console.error('Toggle fog error:', error);
+    }
+  };
+  
+  const toggleClipping = async () => {
+    if (!pluginRef.current) return;
+    try {
+      await pluginRef.current.canvas3d?.setProps({ cameraClipping: { far: showClipping ? 100 : 1 } });
+      setShowClipping(!showClipping);
+    } catch (error) {
+      console.error('Toggle clipping error:', error);
+    }
+  };
   
   return (
     <div className="flex flex-col h-full">
@@ -343,6 +462,43 @@ const MoleculeViewer = ({
           )}
         </div>
       </div>
+      
+      {showAdvancedControls && (
+        <div className="bg-muted/20 border-b px-2 sm:px-4 py-2 flex flex-wrap items-center gap-2">
+          <Button 
+            variant={showAxes ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleAxes} 
+            className="h-8 text-xs"
+          >
+            {showAxes ? "Hide Axes" : "Show Axes"}
+          </Button>
+          <Button 
+            variant={showBoundingBox ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleBoundingBox} 
+            className="h-8 text-xs"
+          >
+            {showBoundingBox ? "Hide Box" : "Show Box"}
+          </Button>
+          <Button 
+            variant={showFog ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleFog} 
+            className="h-8 text-xs"
+          >
+            {showFog ? "Fog On" : "Fog Off"}
+          </Button>
+          <Button 
+            variant={showClipping ? "default" : "outline"} 
+            size="sm" 
+            onClick={toggleClipping} 
+            className="h-8 text-xs"
+          >
+            {showClipping ? "Clipping On" : "Clipping Off"}
+          </Button>
+        </div>
+      )}
       
       <div className="flex flex-col md:flex-row flex-1">
         <div className="flex-1 h-[300px] md:h-full bg-black/5 relative">
