@@ -1,6 +1,13 @@
+
 [[redirects]]
   from = "/api/esmfold"
   to   = "https://health.api.nvidia.com/v1/biology/nvidia/esmfold"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/alphafold2"
+  to   = "https://health.api.nvidia.com/v1/biology/deepmind/alphafold2"
   status = 200
   force  = true
 

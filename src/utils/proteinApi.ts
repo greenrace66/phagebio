@@ -1,7 +1,5 @@
-import { toast } from "@/hooks/use-toast";
 
-// ESMFold API endpoint
-const ESMFOLD_API_URL = "/api/esmfold";
+import { toast } from "@/hooks/use-toast";
 
 // Function to validate protein sequence (only allow valid amino acids)
 export const validateSequence = (sequence: string): boolean => {
@@ -25,7 +23,7 @@ export const cleanSequence = (sequence: string): string => {
     .toUpperCase();
 };
 
-// Function to predict protein structure using ESMFold API
+// Function to predict protein structure using proxy endpoints
 export const predictStructure = async (
   sequence: string,
   apiKey: string,
@@ -54,7 +52,7 @@ export const predictStructure = async (
       };
     }
 
-    // Call to ESMFold API - Updated to match the exact format provided
+    // Call to proxy endpoint - Updated to use /api/esmfold
     const options = {
       method: 'POST',
       headers: {
@@ -67,7 +65,7 @@ export const predictStructure = async (
       })
     };
 
-    const response = await fetch(ESMFOLD_API_URL, options);
+    const response = await fetch("/api/esmfold", options);
 
     if (!response.ok) {
       const errorData = await response.json();

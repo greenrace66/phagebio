@@ -1,3 +1,4 @@
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -13,6 +14,12 @@ export default defineConfig(({ mode }) => ({
         target: 'https://health.api.nvidia.com/v1/biology/nvidia/esmfold',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/esmfold/, ''),
+        secure: false,
+      },
+      '/api/alphafold2': {
+        target: 'https://health.api.nvidia.com/v1/biology/deepmind/alphafold2',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/alphafold2/, ''),
         secure: false,
       }
     }

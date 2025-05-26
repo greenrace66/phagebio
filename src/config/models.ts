@@ -21,7 +21,7 @@ export const models: Record<string, ModelConfig> = {
     description: "Fastest protein structure prediction model",
     icon: "FileCode",
     tag: "Structure Prediction",
-    apiEndpoint: "https://health.api.nvidia.com/v1/biology/nvidia/esmfold",
+    apiEndpoint: "/api/esmfold", // Use proxy endpoint
     headers: {
       'accept': 'application/json',
       'content-type': 'application/json'
@@ -40,7 +40,7 @@ export const models: Record<string, ModelConfig> = {
     description: "DeepMind's revolutionary protein structure prediction system",
     icon: "Dna",
     tag: "Structure Prediction",
-    apiEndpoint: "https://health.api.nvidia.com/v1/biology/deepmind/alphafold2",
+    apiEndpoint: "/api/alphafold2", // Use proxy endpoint
     headers: {
       'accept': 'application/json',
       'content-type': 'application/json'
