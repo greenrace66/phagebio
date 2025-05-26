@@ -1,3 +1,4 @@
+
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,7 +66,7 @@ const MoleculeViewer = ({
             initial: {
               isExpanded: false,
               showControls: true,
-              controlsDisplay: 'reactive'
+              controlsDisplay: 'reactive' as const
             }
           }
         };
@@ -141,12 +142,14 @@ const MoleculeViewer = ({
       const avgConf = calculateAverageConfidence(structure.data);
       setAverageConfidence(avgConf);
       
-      // Apply representation with bfactor coloring for predictions
+      // Apply representation with pLDDT coloring from b-factor for predictions
+      const reprType = initialStyle === 'cartoon' ? 'cartoon' : 
+                      initialStyle === 'spacefill' ? 'spacefill' :
+                      initialStyle === 'licorice' ? 'ball-and-stick' : 'molecular-surface';
+      
       await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-        type: initialStyle === 'cartoon' ? 'cartoon' : 
-              initialStyle === 'spacefill' ? 'spacefill' :
-              initialStyle === 'licorice' ? 'ball-and-stick' : 'surface',
-        colorTheme: { name: 'atom-test' } // Use b-factor coloring for pLDDT
+        type: reprType as any,
+        colorTheme: { name: 'uncertainty' } // Use uncertainty theme for pLDDT coloring
       });
       
       // Auto-focus the structure
@@ -155,7 +158,7 @@ const MoleculeViewer = ({
       setStructureSource("prediction");
       toast({
         title: "Structure loaded",
-        description: "Successfully loaded predicted structure",
+        description: "Successfully loaded predicted structure with pLDDT coloring",
       });
     } catch (error) {
       console.error('Structure loading error:', error);
@@ -267,34 +270,24 @@ const MoleculeViewer = ({
       const structure = structures[0];
       
       // Remove existing representations
-      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
-      for (const repr of reprs) {
-        await PluginCommands.State.RemoveObject(pluginRef.current, { state: repr.parent!, ref: repr.transform.ref });
+      const currentStructures = pluginRef.current.managers.structure.hierarchy.current.structures;
+      for (const struct of currentStructures) {
+        const representations = pluginRef.current.managers.structure.hierarchy.getStructureRepresentations(struct.ref);
+        for (const repr of representations) {
+          await PluginCommands.State.RemoveObject(pluginRef.current, { state: pluginRef.current.state.data, ref: repr.ref });
+        }
       }
 
       // Add new representation
       const reprType = style === 'cartoon' ? 'cartoon' : 
                       style === 'spacefill' ? 'spacefill' :
-                      style === 'licorice' ? 'ball-and-stick' : 'surface';
+                      style === 'licorice' ? 'ball-and-stick' : 'molecular-surface';
       
-      // Use appropriate coloring based on structure source
-      let colorTheme;
-      if (structureSource === 'prediction') {
-        // Always use pLDDT coloring for predictions
-        colorTheme = 'atom-test';
-      } else {
-        // For PDB structures, use the current color scheme
-        const currentColorSelect = document.querySelector('select[placeholder="Color"]') as HTMLSelectElement;
-        const currentColor = currentColorSelect?.value || 'bfactor';
-        
-        colorTheme = currentColor === 'chainname' ? 'chain-id' : 
-                    currentColor === 'residueindex' ? 'residue-name' :
-                    currentColor === 'atomindex' ? 'element-symbol' :
-                    currentColor === 'bfactor' ? 'atom-test' : 'chain-id';
-      }
+      // Use pLDDT coloring for predictions
+      const colorTheme = structureSource === 'prediction' ? 'uncertainty' : 'chain-id';
       
       await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-        type: reprType,
+        type: reprType as any,
         colorTheme: { name: colorTheme }
       });
     } catch (error) {
@@ -307,16 +300,15 @@ const MoleculeViewer = ({
     if (!pluginRef.current) return;
 
     try {
-      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
-      if (reprs.length === 0) return;
+      const currentStructures = pluginRef.current.managers.structure.hierarchy.current.structures;
+      if (currentStructures.length === 0) return;
 
       // Map color schemes to Mol* color themes
       let colorThemeName;
       
-      // For prediction structures, always use atom-test (pLDDT) if bfactor is selected
+      // For prediction structures, always use uncertainty (pLDDT) if bfactor is selected
       if (structureSource === 'prediction') {
-        // Always use pLDDT coloring for predictions
-        colorThemeName = 'atom-test';
+        colorThemeName = 'uncertainty'; // Use uncertainty theme for pLDDT coloring
       } else {
         // For other cases, map to appropriate color themes
         switch (colorScheme) {
@@ -330,21 +322,22 @@ const MoleculeViewer = ({
             colorThemeName = 'element-symbol';
             break;
           case 'bfactor':
-            colorThemeName = 'atom-test';
+            colorThemeName = 'uncertainty';
             break;
           default:
             colorThemeName = 'chain-id';
         }
       }
 
-      for (const repr of reprs) {
-        await PluginCommands.State.Update(pluginRef.current, {
-          state: repr.parent!,
-          tree: repr,
-          params: {
+      for (const struct of currentStructures) {
+        const representations = pluginRef.current.managers.structure.hierarchy.getStructureRepresentations(struct.ref);
+        for (const repr of representations) {
+          await PluginCommands.State.Update(pluginRef.current, {
+            state: pluginRef.current.state.data,
+            tree: repr,
             colorTheme: { name: colorThemeName }
-          }
-        });
+          });
+        }
       }
     } catch (error) {
       console.error('Color change error:', error);
@@ -373,7 +366,13 @@ const MoleculeViewer = ({
   const toggleAxes = async () => {
     if (!pluginRef.current) return;
     try {
-      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { axes: showAxes ? 'off' : 'on' } } });
+      await pluginRef.current.canvas3d?.setProps({ 
+        camera: { 
+          helper: { 
+            axes: { name: showAxes ? 'off' : 'on', params: {} } 
+          } 
+        } 
+      });
       setShowAxes(!showAxes);
     } catch (error) {
       console.error('Toggle axes error:', error);
@@ -383,7 +382,13 @@ const MoleculeViewer = ({
   const toggleBoundingBox = async () => {
     if (!pluginRef.current) return;
     try {
-      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { boundingBox: showBoundingBox ? 'off' : 'on' } } });
+      await pluginRef.current.canvas3d?.setProps({ 
+        camera: { 
+          helper: { 
+            axes: { name: showBoundingBox ? 'off' : 'on', params: {} } 
+          } 
+        } 
+      });
       setShowBoundingBox(!showBoundingBox);
     } catch (error) {
       console.error('Toggle bounding box error:', error);
@@ -393,7 +398,9 @@ const MoleculeViewer = ({
   const toggleFog = async () => {
     if (!pluginRef.current) return;
     try {
-      await pluginRef.current.canvas3d?.setProps({ cameraFog: { name: showFog ? 'off' : 'on' } });
+      await pluginRef.current.canvas3d?.setProps({ 
+        cameraFog: { name: showFog ? 'off' : 'on', params: showFog ? {} : { intensity: 50 } }
+      });
       setShowFog(!showFog);
     } catch (error) {
       console.error('Toggle fog error:', error);
@@ -403,7 +410,9 @@ const MoleculeViewer = ({
   const toggleClipping = async () => {
     if (!pluginRef.current) return;
     try {
-      await pluginRef.current.canvas3d?.setProps({ cameraClipping: { far: showClipping ? 100 : 1 } });
+      await pluginRef.current.canvas3d?.setProps({ 
+        cameraClipping: { far: showClipping ? false : true } 
+      });
       setShowClipping(!showClipping);
     } catch (error) {
       console.error('Toggle clipping error:', error);
