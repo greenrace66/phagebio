@@ -87,12 +87,16 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
     setIsProcessing(true);
 
     try {
+      console.log('Initiating payment for user:', user.id);
+      
       // Create an order with credits
       const order = await createOrder(amount, 'INR', `credits_${credits}`);
 
       if (!order) {
         throw new Error('Failed to create order');
       }
+
+      console.log('Order created successfully:', order);
 
       return new Promise((resolve) => {
         // Open Razorpay checkout
@@ -112,11 +116,13 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
           },
           handler: async function (response: RazorpayPayment) {
             try {
-              // Verify payment
+              console.log('Payment successful, verifying...', response);
+              
+              // Verify payment with user ID
               const isVerified = await verifyPayment({
                 ...response,
                 credits: credits
-              });
+              }, user.id);
             
               if (isVerified) {
                 toast.success(`Payment successful! ${credits} credits added to your account.`);

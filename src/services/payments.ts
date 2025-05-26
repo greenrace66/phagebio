@@ -1,4 +1,3 @@
-import axios from 'axios';
 
 // TypeScript interfaces for Razorpay
 export interface RazorpayOrder {
@@ -42,8 +41,8 @@ export const loadRazorpayScript = (): Promise<boolean> => {
 
 /**
  * Creates a new order with Razorpay
- * @param amount - Amount in smallest currency unit (cents for USD)
- * @param currency - Currency code (e.g., 'USD')
+ * @param amount - Amount in paise (smallest currency unit)
+ * @param currency - Currency code (e.g., 'INR')
  * @param receipt - Receipt ID in format 'credits_100'
  * @returns Promise<RazorpayOrder | null> - Order details or null if failed
  */
@@ -59,16 +58,36 @@ export const createOrder = async (
       throw new Error('Invalid receipt format. Expected format: credits_100');
     }
 
-    // Call the backend API to create an order
-    const response = await axios.post('/api/create-order', {
+    console.log('Creating order with parameters:', {
       credits: parseInt(credits),
       amount,
-      currency,
+      currency
     });
 
-    if (response.data && response.data.order) {
-      return response.data.order as RazorpayOrder;
+    // Call the Netlify function to create an order
+    const response = await fetch('/.netlify/functions/create-order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        credits: parseInt(credits),
+        amount,
+        currency,
+      }),
+    });
+
+    const data = await response.json();
+    console.log('Create order response:', data);
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to create order');
     }
+
+    if (data.success && data.order) {
+      return data.order as RazorpayOrder;
+    }
+    
     throw new Error('Failed to create order: Invalid response from server');
   } catch (error: any) {
     console.error('Error creating order:', error);
@@ -79,24 +98,49 @@ export const createOrder = async (
 /**
  * Verifies a payment with the backend
  * @param payment - Payment details from Razorpay
+ * @param userId - User ID for verification
  * @returns Promise<boolean> - true if payment is verified
  */
-export const verifyPayment = async (payment: RazorpayPayment): Promise<boolean> => {
+export const verifyPayment = async (
+  payment: RazorpayPayment, 
+  userId?: string
+): Promise<boolean> => {
   try {
     if (!payment.credits) {
       throw new Error('Credits information is missing from payment');
     }
 
-    // Call the backend API to verify the payment
-    const response = await axios.post('/api/verify-payment', {
+    console.log('Verifying payment with parameters:', {
       razorpay_payment_id: payment.razorpay_payment_id,
       razorpay_order_id: payment.razorpay_order_id,
-      razorpay_signature: payment.razorpay_signature,
+      razorpay_signature: payment.razorpay_signature ? 'present' : 'missing',
       credits: payment.credits,
-      user_id: (window as any).user?.id // Get user ID from global state
+      user_id: userId
     });
 
-    return response.data && response.data.success === true;
+    // Call the Netlify function to verify the payment
+    const response = await fetch('/.netlify/functions/verify-payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        razorpay_payment_id: payment.razorpay_payment_id,
+        razorpay_order_id: payment.razorpay_order_id,
+        razorpay_signature: payment.razorpay_signature,
+        credits: payment.credits,
+        user_id: userId,
+      }),
+    });
+
+    const data = await response.json();
+    console.log('Verify payment response:', data);
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Payment verification failed');
+    }
+
+    return data && data.success === true;
   } catch (error: any) {
     console.error('Error verifying payment:', error);
     throw error;
