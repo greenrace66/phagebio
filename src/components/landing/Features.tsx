@@ -1,3 +1,4 @@
+
 import { 
   Book, 
   FileText, 
@@ -6,28 +7,34 @@ import {
   Check
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const Features = () => {
   const features = [
     {
       icon: <Search className="h-10 w-10 text-biostruct-500" />,
       title: "Structure Prediction",
-      description: "Predict protein structures from sequences using state-of-the-art deep learning models."
+      description: "Predict protein structures from sequences using state-of-the-art deep learning models.",
+      link: "/models"
     },
     {
       icon: <Database className="h-10 w-10 text-molecular-500" />,
       title: "Pocket Detection",
-      description: "Automatically identify and analyze potential binding sites and pockets in protein structures."
+      description: "Automatically identify and analyze potential binding sites and pockets in protein structures.",
+      link: "/models"
     },
     {
       icon: <FileText className="h-10 w-10 text-biostruct-500" />,
       title: "Molecular Docking",
-      description: "Screen compounds against protein targets to identify potential binding candidates."
+      description: "Screen compounds against protein targets to identify potential binding candidates.",
+      link: "/models"
     },
     {
       icon: <Book className="h-10 w-10 text-molecular-500" />,
       title: "Interactive Visualization",
-      description: "Explore 3D molecular structures with our intuitive browser-based visualization tools."
+      description: "Explore 3D molecular structures with our intuitive browser-based visualization tools.",
+      link: "/models"
     }
   ];
 
@@ -45,13 +52,18 @@ const Features = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.map((feature, index) => (
-            <Card key={index}>
+            <Card key={index} className="hover:shadow-lg transition-shadow duration-200 group">
               <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                <div className="p-2 rounded-full bg-muted">
+                <div className="p-2 rounded-full bg-muted group-hover:bg-muted/80 transition-colors">
                   {feature.icon}
                 </div>
                 <h3 className="text-xl font-semibold">{feature.title}</h3>
                 <p className="text-muted-foreground">{feature.description}</p>
+                <Button variant="outline" size="sm" asChild className="mt-auto">
+                  <Link to={feature.link}>
+                    Explore
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           ))}
@@ -80,9 +92,11 @@ const Features = () => {
               </ul>
             </div>
             <div className="flex-shrink-0">
-              <button className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-biostruct-600 transition-colors">
-                Sign Up Free
-              </button>
+              <Button className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-biostruct-600 transition-colors" asChild>
+                <Link to="/login">
+                  Sign Up Free
+                </Link>
+              </Button>
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -12,21 +13,10 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MoleculeViewer from "@/components/molecule/MoleculeViewer";
-import { ArrowLeft, Send, Download, Share, FileCode, Loader2, FileText } from "lucide-react";
-import { predictStructure, validateSequence, cleanSequence } from "@/utils/proteinApi";
+import { ArrowLeft, Send, Download, Share, FileCode, Loader2 } from "lucide-react";
+import { validateSequence, cleanSequence } from "@/utils/proteinApi";
 import { supabase } from "@/integrations/supabase/client";
-
-const models = {
-  esmfold: {
-    name: "ESMFold",
-    description: "Fastest protein structure prediction model",
-    icon: <FileCode className="h-6 w-6 text-biostruct-500" />,
-    tag: "Structure Prediction",
-    apiEndpoint: "https://health.api.nvidia.com/v1/biology/nvidia/esmfold",
-    disclaimer: "COST : 1 credit",
-    exampleSequence: "FVNQHLCGSHLVEALYLVCGERGFFYTPKA"
-  }
-};
+import { models } from "@/config/models";
 
 const ModelDetail = () => {
   const { modelId } = useParams();
@@ -37,13 +27,16 @@ const ModelDetail = () => {
   const jobId = searchParams.get("job");
   const [sequence, setSequence] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [progress, setProgress] = useState(0); // Ensure it's a number
+  const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<{
     pdbString?: string;
     json?: any;
     error?: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState("view");
+
+  // Get model configuration
+  const model = modelId ? models[modelId] : null;
 
   // Load job parameters if jobId present
   useEffect(() => {
@@ -61,9 +54,6 @@ const ModelDetail = () => {
         }
       });
   }, [jobId, user]);
-
-  // Check if the model exists
-  const model = modelId ? models[modelId as keyof typeof models] : null;
 
   if (!model) {
     return (
@@ -94,6 +84,47 @@ const ModelDetail = () => {
     });
   };
 
+  const predictStructure = async (sequence: string, apiKey: string) => {
+    try {
+      const cleanedSeq = cleanSequence(sequence);
+      
+      const options = {
+        method: 'POST',
+        headers: {
+          ...model.headers,
+          'authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(model.requestBody(cleanedSeq))
+      };
+
+      const response = await fetch(model.apiEndpoint, options);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return { 
+          success: false, 
+          error: errorData.message || "Failed to predict structure" 
+        };
+      }
+
+      const data = await response.json();
+      const parsed = model.responseParser(data);
+      
+      return { 
+        success: true, 
+        data: parsed.pdbString,
+        json: data,
+        error: parsed.error
+      };
+    } catch (error) {
+      console.error("Error:", error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to fetch. Please check your network connection" 
+      };
+    }
+  };
+
   const handleSubmit = async () => {
     if (!user) {
       toast({ title: "Authentication Required", description: "Please sign in to predict structure.", variant: "destructive" });
@@ -119,7 +150,10 @@ const ModelDetail = () => {
       return;
     }
 
-    // Check and deduct credits (1 per prediction)
+    // Calculate credits needed based on model
+    const creditsNeeded = model.id === 'alphafold2' ? 2 : 1;
+
+    // Check and deduct credits
     const { data: profile, error: credErr } = await supabase
       .from("profiles")
       .select("credits")
@@ -130,18 +164,19 @@ const ModelDetail = () => {
       toast({ title: "Error", description: "Could not verify credits.", variant: "destructive" });
       return;
     }
-    if (profile.credits < 1) {
-      toast({ title: "No Credits Left", description: "You have exhausted your daily credits. Please wait until tomorrow.", variant: "destructive" });
+    if (profile.credits < creditsNeeded) {
+      toast({ title: "Insufficient Credits", description: `You need ${creditsNeeded} credits for this model. Please purchase more credits.`, variant: "destructive" });
       return;
     }
-    // Deduct one credit
+    
+    // Deduct credits
     await supabase
       .from("profiles")
-      .update({ credits: profile.credits - 1 })
+      .update({ credits: profile.credits - creditsNeeded })
       .eq("id", user.id);
 
     setIsLoading(true);
-    setProgress(0); // Ensure it's a number
+    setProgress(0);
     setResult(null);
 
     // Progress simulation
@@ -153,8 +188,7 @@ const ModelDetail = () => {
     }, 800);
 
     try {
-      // For demo purposes, we're using a demo API key
-      // In a production app, this should come from environment variables or user input
+      // For demo purposes, using demo API key
       const apiKey = "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";
       
       const result = await predictStructure(sequence, apiKey);
@@ -163,11 +197,9 @@ const ModelDetail = () => {
       clearInterval(progressInterval);
       setProgress(100);
       
-      if (result.success) {
-        // Convert JSON response to PDB format if needed
-        const pdbString = result.json?.pdbs?.[0] || result.data;
+      if (result.success && !result.error) {
         setResult({
-          pdbString: pdbString,
+          pdbString: result.data,
           json: result.json
         });
         setActiveTab("view");
@@ -175,13 +207,14 @@ const ModelDetail = () => {
           title: "Success",
           description: "Structure prediction completed successfully!",
         });
+        
         // Save job record
         const { error: insertError } = await supabase.from("jobs").insert({
           user_id: user.id,
           model_id: modelId!,
           input_sequence: sequence,
           status: "success",
-          result: pdbString
+          result: result.data
         });
         if (insertError) console.error("Job insert error:", insertError);
       } else {
@@ -191,6 +224,7 @@ const ModelDetail = () => {
           description: result.error || "An error occurred during prediction.",
           variant: "destructive",
         });
+        
         // Save failed job
         const { error: insertError } = await supabase.from("jobs").insert({
           user_id: user.id,

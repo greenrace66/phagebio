@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { loadRazorpayScript, createOrder, verifyPayment, RazorpayOrder, RazorpayPayment } from '@/services/payments';
 import { toast } from 'sonner';
@@ -93,61 +94,63 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
         throw new Error('Failed to create order');
       }
 
-      // Open Razorpay checkout
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: order.amount.toString(),
-        currency: order.currency,
-        name: 'Bio Struct Forge',
-        description: `Purchase ${credits} Credits`,
-        order_id: order.id,
-        prefill: {
-          name: user.full_name || '',
-          email: user.email || '',
-        },
-        theme: {
-          color: '#10b981', // biostruct-500 color
-        },
-        handler: async function (response: RazorpayPayment) {
-          try {
-          // Verify payment
-            const isVerified = await verifyPayment({
-              ...response,
-              credits: credits
-            });
-          
-          if (isVerified) {
-              toast.success(`Successfully purchased ${credits} credits!`);
-              setIsProcessing(false);
-            return true;
-          } else {
+      return new Promise((resolve) => {
+        // Open Razorpay checkout
+        const options = {
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+          amount: order.amount.toString(),
+          currency: order.currency,
+          name: 'Bio Struct Forge',
+          description: `Purchase ${credits} Credits`,
+          order_id: order.id,
+          prefill: {
+            name: user.full_name || '',
+            email: user.email || '',
+          },
+          theme: {
+            color: '#10b981', // biostruct-500 color
+          },
+          handler: async function (response: RazorpayPayment) {
+            try {
+              // Verify payment
+              const isVerified = await verifyPayment({
+                ...response,
+                credits: credits
+              });
+            
+              if (isVerified) {
+                toast.success(`Payment successful! ${credits} credits added to your account.`);
+                setIsProcessing(false);
+                resolve(true);
+              } else {
+                toast.error('Payment verification failed. Please contact support.');
+                setIsProcessing(false);
+                resolve(false);
+              }
+            } catch (error) {
+              console.error('Payment verification error:', error);
               toast.error('Payment verification failed. Please contact support.');
               setIsProcessing(false);
-              return false;
+              resolve(false);
             }
-          } catch (error) {
-            console.error('Payment verification error:', error);
-            toast.error('Payment verification failed. Please contact support.');
-            setIsProcessing(false);
-            return false;
-          }
-        },
-        modal: {
-          ondismiss: function () {
-            setIsProcessing(false);
-            toast.info('Payment cancelled');
           },
-        },
-      };
+          modal: {
+            ondismiss: function () {
+              setIsProcessing(false);
+              toast.error('Payment cancelled or failed. Please try again.');
+              resolve(false);
+            },
+          },
+        };
 
-      // Check if Razorpay is available in window
-      if (typeof window !== 'undefined' && (window as any).Razorpay) {
-      const razorpay = new (window as any).Razorpay(options);
-      razorpay.open();
-      return true;
-      } else {
-        throw new Error('Razorpay is not initialized');
-      }
+        // Check if Razorpay is available in window
+        if (typeof window !== 'undefined' && (window as any).Razorpay) {
+          const razorpay = new (window as any).Razorpay(options);
+          razorpay.open();
+        } else {
+          throw new Error('Razorpay is not initialized');
+        }
+      });
     } catch (error: any) {
       console.error('Payment initiation error:', error);
       toast.error(error.message || 'Failed to initiate payment. Please try again later.');

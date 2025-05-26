@@ -5,37 +5,17 @@ import Navbar from "@/components/navigation/Navbar";
 import Footer from "@/components/landing/Footer";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileCode, Dna, Lock, ArrowRight } from "lucide-react";
+import { Lock, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { models } from "@/config/models";
 
 const ModelsPage = () => {
   const navigate = useNavigate();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
-  const models = [
-    {
-      id: "esmfold",
-      name: "ESMFold",
-      description: "State-of-the-art protein structure prediction model powered by NVIDIA",
-      icon: <FileCode className="h-6 w-6 text-biostruct-500" />,
-      tag: "Structure Prediction",
-      input: "Protein sequence",
-      output: "3D structure",
-      disabled: false
-    },
-    {
-      id: "alphafold",
-      name: "AlphaFold",
-      description: "DeepMind's revolutionary protein structure prediction system",
-      icon: <Dna className="h-6 w-6 text-molecular-500" />,
-      tag: "Structure Prediction",
-      input: "Protein sequence",
-      output: "3D structure with confidence scores",
-      disabled: true
-    }
-  ];
+  const modelList = Object.values(models);
 
   const handleCardClick = (modelId: string, disabled: boolean) => {
     if (disabled) return;
@@ -57,7 +37,7 @@ const ModelsPage = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-7xl mx-auto">
-            {models.map((model) => (
+            {modelList.map((model) => (
               <Card 
                 key={model.id}
                 className={`p-4 md:p-6 transition-all duration-200 ${
@@ -99,11 +79,11 @@ const ModelsPage = () => {
                   <div className="space-y-3">
                     <div className="grid grid-cols-3 gap-2">
                       <span className="text-sm font-medium">Input:</span>
-                      <span className="text-sm text-muted-foreground col-span-2">{model.input}</span>
+                      <span className="text-sm text-muted-foreground col-span-2">Protein sequence</span>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <span className="text-sm font-medium">Output:</span>
-                      <span className="text-sm text-muted-foreground col-span-2">{model.output}</span>
+                      <span className="text-sm text-muted-foreground col-span-2">3D structure</span>
                     </div>
                   </div>
                   
