@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +16,7 @@ import { ArrowLeft, Send, Download, Share, FileCode, Loader2 } from "lucide-reac
 import { validateSequence, cleanSequence } from "@/utils/proteinApi";
 import { supabase } from "@/integrations/supabase/client";
 import { models } from "@/config/models";
+import { ModelIcon } from "@/components/ui/model-icon";
 
 const ModelDetail = () => {
   const { modelId } = useParams();
@@ -296,7 +296,10 @@ const ModelDetail = () => {
                 <CardHeader className="pb-3">
                   <div className="flex items-center space-x-3">
                     <div className="bg-muted rounded-full p-2">
-                      {model.icon}
+                      <ModelIcon 
+                        iconName={model.icon} 
+                        className={`h-6 w-6 ${model.icon === 'FileCode' ? 'text-biostruct-500' : 'text-molecular-500'}`} 
+                      />
                     </div>
                     <div>
                       <CardTitle>{model.name}</CardTitle>

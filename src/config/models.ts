@@ -3,7 +3,7 @@ export interface ModelConfig {
   id: string;
   name: string;
   description: string;
-  icon: React.ReactNode;
+  icon: string; // Changed to string to reference icon names
   tag: string;
   apiEndpoint: string;
   headers: Record<string, string>;
@@ -14,14 +14,12 @@ export interface ModelConfig {
   disabled: boolean;
 }
 
-import { FileCode, Dna } from "lucide-react";
-
 export const models: Record<string, ModelConfig> = {
   esmfold: {
     id: "esmfold",
     name: "ESMFold",
     description: "Fastest protein structure prediction model",
-    icon: <FileCode className="h-6 w-6 text-biostruct-500" />,
+    icon: "FileCode",
     tag: "Structure Prediction",
     apiEndpoint: "https://health.api.nvidia.com/v1/biology/nvidia/esmfold",
     headers: {
@@ -40,7 +38,7 @@ export const models: Record<string, ModelConfig> = {
     id: "alphafold2",
     name: "AlphaFold2",
     description: "DeepMind's revolutionary protein structure prediction system",
-    icon: <Dna className="h-6 w-6 text-molecular-500" />,
+    icon: "Dna",
     tag: "Structure Prediction",
     apiEndpoint: "https://health.api.nvidia.com/v1/biology/deepmind/alphafold2",
     headers: {

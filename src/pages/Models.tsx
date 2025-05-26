@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/navigation/Navbar";
@@ -9,6 +8,7 @@ import { Lock, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { models } from "@/config/models";
+import { ModelIcon } from "@/components/ui/model-icon";
 
 const ModelsPage = () => {
   const navigate = useNavigate();
@@ -62,7 +62,10 @@ const ModelsPage = () => {
                   
                   <div className="flex items-center space-x-3 mb-4">
                     <div className="bg-muted rounded-full p-3">
-                      {model.icon}
+                      <ModelIcon 
+                        iconName={model.icon} 
+                        className={`h-6 w-6 ${model.icon === 'FileCode' ? 'text-biostruct-500' : 'text-molecular-500'}`} 
+                      />
                     </div>
                     <div>
                       <h2 className="text-lg md:text-xl font-bold">{model.name}</h2>
