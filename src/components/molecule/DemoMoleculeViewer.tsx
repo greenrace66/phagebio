@@ -25,6 +25,23 @@ import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
 import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
 
+// Import the modular MolStar utilities
+import {
+  loadStructureIntoMolstar,
+  updatePolymerView,
+  overPaintPolymer,
+  setStructureTransparency,
+  addPredictedPolymerRepresentation,
+  createLigandRepresentations,
+  focusOnSecondLoadedStructure,
+  convertESMFoldToPredictionData,
+  PolymerViewType,
+  PolymerColorType,
+  PolymerRepresentation,
+  PocketRepresentation,
+  PredictionData
+} from '@/utils/molstar';
+
 interface MoleculeViewerProps {
   initialPdbId?: string;
   initialStyle?: string;
@@ -33,7 +50,7 @@ interface MoleculeViewerProps {
   viewType?: "docking" | "prediction" | "standard";
 }
 
-const MoleculeViewer = ({ 
+const DemoMoleculeViewer = ({ 
   initialPdbId = "1crn",
   initialStyle = "cartoon",
   initialColor = "chainname",
@@ -56,6 +73,25 @@ const MoleculeViewer = ({
     error?: string;
   } | null>(null);
   const [averageConfidence, setAverageConfidence] = useState<number | null>(null);
+  
+  // Advanced MolStar states
+  const [polymerRepresentations, setPolymerRepresentations] = useState<PolymerRepresentation[]>([]);
+  const [predictedPolymerRepresentations, setPredictedPolymerRepresentations] = useState<PolymerRepresentation[]>([]);
+  const [pocketRepresentations, setPocketRepresentations] = useState<PocketRepresentation[]>([]);
+  const [currentPolymerView, setCurrentPolymerView] = useState<PolymerViewType>(
+    initialStyle === 'cartoon' ? PolymerViewType.Cartoon : 
+    initialStyle === 'spacefill' || initialStyle === 'licorice' ? PolymerViewType.Atoms : 
+    PolymerViewType.Gaussian_Surface
+  );
+  const [currentColorType, setCurrentColorType] = useState<PolymerColorType>(
+    initialColor === 'chainname' ? PolymerColorType.Chain :
+    initialColor === 'residueindex' ? PolymerColorType.Residue :
+    initialColor === 'atomindex' ? PolymerColorType.Element :
+    initialColor === 'bfactor' ? PolymerColorType.AlphaFold :
+    PolymerColorType.White
+  );
+  const [structureTransparency, setStructureTransparency] = useState<number>(1);
+  const [showConfidentResidues, setShowConfidentResidues] = useState<boolean>(false);
 
   useEffect(() => {
     if (!viewerRef.current) return;
@@ -143,16 +179,24 @@ const MoleculeViewer = ({
       // Clear existing structures
       await pluginRef.current.clear();
       
-      let data;
+      let structure;
+      let polymerReps;
+      
       if (pdbData) {
         // Load from PDB string data
-        data = await pluginRef.current.builders.data.rawData({
-          data: pdbData,
-          label: 'Predicted Structure'
-        });
-        const trajectory = await pluginRef.current.builders.structure.parseTrajectory(data, 'pdb');
-        const model = await pluginRef.current.builders.structure.createModel(trajectory);
-        const structure = await pluginRef.current.builders.structure.createStructure(model);
+        const blob = new Blob([pdbData], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        
+        // Use the modular function to load structure
+        const [model, structureObj, polymerRepresentations] = await loadStructureIntoMolstar(
+          pluginRef.current, 
+          url,
+          structureTransparency
+        );
+        
+        structure = structureObj;
+        polymerReps = polymerRepresentations;
+        setPolymerRepresentations(polymerRepresentations);
         
         setStructureSource("prediction");
         
@@ -160,65 +204,58 @@ const MoleculeViewer = ({
         const avgConf = calculateAverageConfidence(structure.data);
         setAverageConfidence(avgConf);
         
-        // Always use atom-test (pLDDT) coloring for predicted structures
-        await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-          type: initialStyle === 'cartoon' ? 'cartoon' : 
-                initialStyle === 'spacefill' ? 'spacefill' :
-                initialStyle === 'licorice' ? 'ball-and-stick' : 'surface',
-          colorTheme: { name: 'atom-test' } // Use b-factor coloring for pLDDT confidence
-        });
+        // Extract confidence scores from B-factors for prediction data
+        const confidenceScores: number[] = [];
+        const lines = pdbData.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('ATOM')) {
+            const bFactor = parseFloat(line.substring(60, 66).trim());
+            if (!isNaN(bFactor) && !confidenceScores.includes(bFactor)) {
+              confidenceScores.push(bFactor);
+            }
+          }
+        }
+        
+        // Create a prediction data object
+        const predictionData = convertESMFoldToPredictionData(pdbData, confidenceScores);
+        
+        // Add predicted polymer representations if needed
+        if (predictionData.structure.scores.plddt && predictionData.structure.scores.plddt.length > 0) {
+          const predictedReps = await addPredictedPolymerRepresentation(
+            pluginRef.current,
+            predictionData,
+            structure
+          );
+          setPredictedPolymerRepresentations(predictedReps);
+        }
+        
+        // Clean up the blob URL
+        URL.revokeObjectURL(url);
       } else {
         // Load from PDB ID
-        data = await pluginRef.current.builders.data.download({
-          url: `https://files.rcsb.org/download/${id}.cif`,
-          isBinary: false
-        });
-        const trajectory = await pluginRef.current.builders.structure.parseTrajectory(data, 'mmcif');
-        const model = await pluginRef.current.builders.structure.createModel(trajectory);
-        const structure = await pluginRef.current.builders.structure.createStructure(model);
+        const url = `https://files.rcsb.org/download/${id}.cif`;
+        
+        // Use the modular function to load structure
+        const [model, structureObj, polymerRepresentations] = await loadStructureIntoMolstar(
+          pluginRef.current, 
+          url,
+          structureTransparency
+        );
+        
+        structure = structureObj;
+        polymerReps = polymerRepresentations;
+        setPolymerRepresentations(polymerRepresentations);
         
         setStructureSource("pdb");
         
-        // Apply representation with appropriate coloring based on view type
-        const colorTheme = viewType === 'prediction' ? 'atom-test' : // pLDDT for predictions
-                          initialColor === 'chainname' ? 'chain-id' : 
-                          initialColor === 'residueindex' ? 'residue-name' :
-                          initialColor === 'atomindex' ? 'element-symbol' : 
-                          initialColor === 'bfactor' ? 'atom-test' : 'chain-id';
-        
-        await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-          type: initialStyle === 'cartoon' ? 'cartoon' : 
-                initialStyle === 'spacefill' ? 'spacefill' :
-                initialStyle === 'licorice' ? 'ball-and-stick' : 'surface',
-          colorTheme: { name: colorTheme }
-        });
-        
+        // If in docking view or focusLigand is true, add ligand representation
         if (focusLigand || viewType === 'docking') {
           try {
-            // Create a query for selecting ligands
-            const query = {
-              "kind": "composite",
-              "parts": [
-                { "kind": "atom-property", "property": "isHet" }
-              ]
-            };
+            // Create ligand representations
+            await createLigandRepresentations(pluginRef.current, structure);
             
-            // Create ligand-specific structure with the query
-            const ligandStructure = await pluginRef.current.builders.structure.createStructure(model, {
-              name: 'ligand-only',
-              params: { query }
-            });
-            
-            // Add ball-and-stick representation for ligands with element coloring
-            await pluginRef.current.builders.structure.representation.addRepresentation(ligandStructure, {
-              type: 'ball-and-stick',
-              colorTheme: { name: 'element-symbol' }
-            });
-            
-            // Focus camera on ligands
-            await PluginCommands.Camera.Focus(pluginRef.current, { 
-              target: ligandStructure.ref 
-            });
+            // Focus on ligands
+            await focusOnSecondLoadedStructure(pluginRef.current);
           } catch (ligandError) {
             console.error('Failed to focus on ligand:', ligandError);
             // If ligand focus fails, just reset the camera to show the whole structure
@@ -228,6 +265,39 @@ const MoleculeViewer = ({
           // Auto-focus the structure
           await PluginCommands.Camera.Reset(pluginRef.current, {});
         }
+      }
+      
+      // Update the polymer view to show the current representation
+      updatePolymerView(
+        currentPolymerView,
+        pluginRef.current,
+        polymerReps,
+        predictedPolymerRepresentations,
+        showConfidentResidues
+      );
+      
+      // Apply coloring if needed
+      if (currentColorType !== PolymerColorType.White) {
+        // Create a minimal prediction data object for coloring
+        const predictionData: PredictionData = {
+          structure: {
+            indices: [], // Would need to be populated from actual data
+            scores: {
+              plddt: [] // Would need to be populated from actual data
+            },
+            regions: []
+          },
+          pockets: []
+        };
+        
+        await overPaintPolymer(
+          currentColorType,
+          pluginRef.current,
+          predictionData,
+          polymerReps,
+          predictedPolymerRepresentations,
+          pocketRepresentations
+        );
       }
       
       toast({
@@ -385,72 +455,34 @@ const MoleculeViewer = ({
     if (!pluginRef.current) return;
 
     try {
-      // Get current structure
-      const structures = pluginRef.current.managers.structure.hierarchy.current.structures;
-      if (structures.length === 0) return;
-
-      const structure = structures[0];
-      
-      // Remove existing representations
-      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
-      for (const repr of reprs) {
-        await PluginCommands.State.RemoveObject(pluginRef.current, { state: repr.parent!, ref: repr.transform.ref });
-      }
-
-      // Add new representation
-      const reprType = style === 'cartoon' ? 'cartoon' : 
-                      style === 'spacefill' ? 'spacefill' :
-                      style === 'licorice' ? 'ball-and-stick' : 'surface';
-      
-      // Use appropriate coloring based on structure source and view type
-      let colorTheme;
-      if (structureSource === 'prediction' || viewType === 'prediction') {
-        // Always use pLDDT coloring for predictions
-        colorTheme = 'atom-test';
-      } else {
-        // For PDB structures, use the current color scheme
-        const currentColorSelect = document.querySelector('select[placeholder="Color"]') as HTMLSelectElement;
-        const currentColor = currentColorSelect?.value || initialColor;
-        
-        colorTheme = currentColor === 'chainname' ? 'chain-id' : 
-                    currentColor === 'residueindex' ? 'residue-name' :
-                    currentColor === 'atomindex' ? 'element-symbol' :
-                    currentColor === 'bfactor' ? 'atom-test' : 'chain-id';
+      // Map style string to PolymerViewType
+      let viewType: PolymerViewType;
+      switch (style) {
+        case 'cartoon':
+          viewType = PolymerViewType.Cartoon;
+          break;
+        case 'spacefill':
+        case 'licorice':
+          viewType = PolymerViewType.Atoms;
+          break;
+        case 'surface':
+          viewType = PolymerViewType.Gaussian_Surface;
+          break;
+        default:
+          viewType = PolymerViewType.Cartoon;
       }
       
-      await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-        type: reprType,
-        colorTheme: { name: colorTheme }
-      });
+      // Update the current polymer view
+      setCurrentPolymerView(viewType);
       
-      // If in docking view, re-add ligand representation
-      if (viewType === 'docking' || focusLigand) {
-        try {
-          const model = structure.data.models[0];
-          
-          // Create a query for selecting ligands
-          const query = {
-            "kind": "composite",
-            "parts": [
-              { "kind": "atom-property", "property": "isHet" }
-            ]
-          };
-          
-          // Create ligand-specific structure with the query
-          const ligandStructure = await pluginRef.current.builders.structure.createStructure(model, {
-            name: 'ligand-only',
-            params: { query }
-          });
-          
-          // Add ball-and-stick representation for ligands with element coloring
-          await pluginRef.current.builders.structure.representation.addRepresentation(ligandStructure, {
-            type: 'ball-and-stick',
-            colorTheme: { name: 'element-symbol' }
-          });
-        } catch (ligandError) {
-          console.error('Failed to add ligand representation:', ligandError);
-        }
-      }
+      // Update the view using the advanced function
+      updatePolymerView(
+        viewType,
+        pluginRef.current,
+        polymerRepresentations,
+        predictedPolymerRepresentations,
+        showConfidentResidues
+      );
     } catch (error) {
       console.error('Style change error:', error);
     }
@@ -461,51 +493,70 @@ const MoleculeViewer = ({
     if (!pluginRef.current) return;
 
     try {
-      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
-      if (reprs.length === 0) return;
-
-      // Map color schemes to Mol* color themes
-      let colorThemeName;
+      // Map color scheme string to PolymerColorType
+      let colorType: PolymerColorType;
+      switch (colorScheme) {
+        case 'chainname':
+          colorType = PolymerColorType.Chain;
+          break;
+        case 'residueindex':
+          colorType = PolymerColorType.Residue;
+          break;
+        case 'atomindex':
+          colorType = PolymerColorType.Element;
+          break;
+        case 'bfactor':
+          colorType = PolymerColorType.AlphaFold;
+          break;
+        default:
+          colorType = PolymerColorType.White;
+      }
       
-      // For prediction structures or prediction view type, always use pLDDT coloring
-      if ((structureSource === 'prediction' || viewType === 'prediction') && colorScheme === 'bfactor') {
-        colorThemeName = 'atom-test';
-      } else {
-        // For other cases, map to appropriate color themes
-        switch (colorScheme) {
-          case 'chainname':
-            colorThemeName = 'chain-id';
-            break;
-          case 'residueindex':
-            colorThemeName = 'residue-name';
-            break;
-          case 'atomindex':
-            colorThemeName = 'element-symbol';
-            break;
-          case 'bfactor':
-            colorThemeName = 'atom-test';
-            break;
-          default:
-            colorThemeName = 'chain-id';
-        }
-      }
-
-      // Update all representations except ligand representations
-      for (const repr of reprs) {
-        // Skip ligand representations (they should always use element-symbol coloring)
-        const isLigandRepr = repr.obj?.label?.includes('ligand-only');
-        if (!isLigandRepr) {
-          await PluginCommands.State.Update(pluginRef.current, {
-            state: repr.parent!,
-            tree: repr,
-            params: {
-              colorTheme: { name: colorThemeName }
-            }
-          });
-        }
-      }
+      // Update the current color type
+      setCurrentColorType(colorType);
+      
+      // Create a minimal prediction data object for coloring
+      const predictionData: PredictionData = {
+        structure: {
+          indices: [], // Would need to be populated from actual data
+          scores: {
+            plddt: [] // Would need to be populated from actual data
+          },
+          regions: []
+        },
+        pockets: []
+      };
+      
+      // Apply the color using the advanced function
+      await overPaintPolymer(
+        colorType,
+        pluginRef.current,
+        predictionData,
+        polymerRepresentations,
+        predictedPolymerRepresentations,
+        pocketRepresentations
+      );
     } catch (error) {
       console.error('Color change error:', error);
+    }
+  };
+
+  // Handle transparency changes
+  const handleTransparencyChange = async (value: number) => {
+    if (!pluginRef.current) return;
+    
+    try {
+      // Update the transparency state
+      setStructureTransparency(value);
+      
+      // Apply transparency using the advanced function
+      await setStructureTransparency(
+        pluginRef.current,
+        value,
+        polymerRepresentations
+      );
+    } catch (error) {
+      console.error('Transparency change error:', error);
     }
   };
 
@@ -751,47 +802,29 @@ const MoleculeViewer = ({
     }
   };
   
+  // Toggle confident residues
+  const toggleConfidentResidues = () => {
+    setShowConfidentResidues(!showConfidentResidues);
+    if (pluginRef.current) {
+      updatePolymerView(
+        currentPolymerView,
+        pluginRef.current,
+        polymerRepresentations,
+        predictedPolymerRepresentations,
+        !showConfidentResidues
+      );
+    }
+  };
+  
   // Focus on ligand
   const focusOnLigand = async () => {
     if (!pluginRef.current) return;
     try {
-      const structures = pluginRef.current.managers.structure.hierarchy.current.structures;
-      if (structures.length === 0) return;
-      
-      const structure = structures[0];
-      const model = structure.data.models[0];
-      
-      // Create a query for selecting ligands
-      const query = {
-        "kind": "composite",
-        "parts": [
-          { "kind": "atom-property", "property": "isHet" }
-        ]
-      };
-      
-      // Try to focus on ligands
-      try {
-        // Create a selection of ligands
-        const selection = await pluginRef.current.builders.structure.tryCreateSelectionFromQuery(structure, query);
-        
-        if (selection && selection.elementCount > 0) {
-          // Focus camera on the ligand selection
-          await PluginCommands.Camera.Focus(pluginRef.current, { 
-            target: selection,
-            durationMs: 250
-          });
-          return true;
-        }
-      } catch (ligandError) {
-        console.error('Failed to focus on ligand:', ligandError);
-      }
-      
-      // If ligand focus fails, reset the camera view
-      await PluginCommands.Camera.Reset(pluginRef.current, {});
-      return false;
+      await focusOnSecondLoadedStructure(pluginRef.current);
     } catch (error) {
       console.error('Focus on ligand error:', error);
-      return false;
+      // If ligand focus fails, reset the camera view
+      await PluginCommands.Camera.Reset(pluginRef.current, {});
     }
   };
   
@@ -799,19 +832,28 @@ const MoleculeViewer = ({
     <div className="flex flex-col h-full">
       <div className="bg-muted/30 border-b px-2 sm:px-4 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-start sm:justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          {viewType === "standard" && (
+          {viewType !== "prediction" && (
             <form onSubmit={handleSubmit} className="flex items-center gap-2">
               <Input
                 value={pdbId}
                 onChange={(e) => setPdbId(e.target.value)}
-                placeholder="Enter PDB ID"
+                placeholder="PDB ID"
                 className="w-24 sm:w-32 h-8 text-xs"
               />
-              <Button type="submit" variant="outline" size="sm" className="h-8 text-xs">Load</Button>
+              <Button type="submit" variant="outline" size="sm" className="h-8 text-xs">
+                Load
+              </Button>
             </form>
           )}
           
-          <Select defaultValue={initialStyle} onValueChange={handleStyleChange}>
+          <Select 
+            defaultValue={
+              currentPolymerView === PolymerViewType.Cartoon ? "cartoon" :
+              currentPolymerView === PolymerViewType.Atoms ? "licorice" :
+              "surface"
+            } 
+            onValueChange={handleStyleChange}
+          >
             <SelectTrigger className="w-24 sm:w-32 h-8 text-xs">
               <SelectValue placeholder="Style" />
             </SelectTrigger>
@@ -823,7 +865,16 @@ const MoleculeViewer = ({
             </SelectContent>
           </Select>
           
-          <Select defaultValue={initialColor} onValueChange={handleColorChange}>
+          <Select 
+            defaultValue={
+              currentColorType === PolymerColorType.Chain ? "chainname" :
+              currentColorType === PolymerColorType.Residue ? "residueindex" :
+              currentColorType === PolymerColorType.Element ? "atomindex" :
+              currentColorType === PolymerColorType.AlphaFold ? "bfactor" :
+              "chainname"
+            } 
+            onValueChange={handleColorChange}
+          >
             <SelectTrigger className="w-24 sm:w-32 h-8 text-xs">
               <SelectValue placeholder="Color" />
             </SelectTrigger>
@@ -846,17 +897,12 @@ const MoleculeViewer = ({
         </div>
         
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleResetView} className="h-8 text-xs">Reset View</Button>
-          {viewType === 'docking' && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={focusOnLigand}
-              className="h-8 text-xs"
-            >
+          {(viewType === "docking" || focusLigand) && (
+            <Button variant="outline" size="sm" onClick={focusOnLigand} className="h-8 text-xs">
               Focus Ligand
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={handleResetView} className="h-8 text-xs">Reset</Button>
           <Button 
             variant="outline" 
             size="sm" 
@@ -903,37 +949,117 @@ const MoleculeViewer = ({
           >
             {showClipping ? "Clipping On" : "Clipping Off"}
           </Button>
+          
+          {/* New transparency slider */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs">Transparency:</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={structureTransparency}
+              onChange={(e) => handleTransparencyChange(parseFloat(e.target.value))}
+              className="w-24"
+            />
+          </div>
+          
+          {/* Confident residues toggle for predictions */}
+          {structureSource === "prediction" && predictedPolymerRepresentations.length > 0 && (
+            <Button
+              variant={showConfidentResidues ? "default" : "outline"}
+              size="sm"
+              onClick={toggleConfidentResidues}
+              className="h-8 text-xs"
+            >
+              {showConfidentResidues ? "All Residues" : "Confident Only"}
+            </Button>
+          )}
         </div>
       )}
       
-      <div className="flex flex-1">
-        {viewType === "docking" ? (
-          <div className="flex flex-col md:flex-row w-full">
-            <div className="w-full md:w-1/2 md:border-r border-b md:border-b-0">
-              {renderLigandViewer()}
-            </div>
-            <div className="w-full md:w-1/2 h-[300px] md:h-auto bg-black/5 relative">
-              <div ref={viewerRef} className="absolute inset-0" />
-            </div>
-          </div>
-        ) : viewType === "prediction" ? (
-          <div className="flex flex-col md:flex-row w-full">
-            <div className="w-full md:w-1/3 border-r">
+      <div className="flex flex-col md:flex-row flex-1">
+        <div className="flex-1 h-[300px] md:h-full bg-black/5 relative">
+          <div 
+            ref={viewerRef} 
+            className="absolute inset-0"
+          />
+        </div>
+        
+        <div className="w-full md:w-64 border-t md:border-t-0 md:border-l flex-shrink-0 bg-background">
+          <Tabs defaultValue={viewType === "prediction" ? "predict" : "info"} className="h-full flex flex-col">
+            <TabsList className="grid grid-cols-3 mx-4 mt-4">
+              <TabsTrigger value="info">Info</TabsTrigger>
+              <TabsTrigger value="predict">Predict</TabsTrigger>
+              {viewType === "docking" && <TabsTrigger value="ligand">Ligand</TabsTrigger>}
+            </TabsList>
+            
+            <TabsContent value="info" className="flex-1 overflow-auto">
+              <div className="p-4 space-y-4">
+                <div>
+                  <h3 className="text-lg font-medium">Structure Information</h3>
+                  <div className="mt-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-1 text-sm">
+                      <div className="font-medium">Source:</div>
+                      <div>{structureSource === "prediction" ? "Prediction" : "PDB"}</div>
+                      
+                      {structureSource !== "prediction" && (
+                        <>
+                          <div className="font-medium">PDB ID:</div>
+                          <div>{pdbId.toUpperCase()}</div>
+                        </>
+                      )}
+                      
+                      <div className="font-medium">View Type:</div>
+                      <div className="capitalize">{viewType}</div>
+                      
+                      {structureSource === "prediction" && averageConfidence !== null && (
+                        <>
+                          <div className="font-medium">Avg. Confidence:</div>
+                          <div>{averageConfidence.toFixed(1)}</div>
+                        </>
+                      )}
+                    </div>
+                    
+                    {structureSource === "prediction" && averageConfidence !== null && (
+                      <div className="mt-4 space-y-1">
+                        <div className="h-3 w-full bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500 rounded-full" />
+                        <div className="flex justify-between text-[10px] text-muted-foreground">
+                          <span>Low</span>
+                          <span>Medium</span>
+                          <span>High</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-medium">Controls</h3>
+                  <div className="mt-2 space-y-2 text-sm">
+                    <p><span className="font-medium">Mouse:</span> Rotate structure</p>
+                    <p><span className="font-medium">Scroll:</span> Zoom in/out</p>
+                    <p><span className="font-medium">Shift+Mouse:</span> Pan view</p>
+                    <p><span className="font-medium">Ctrl+Mouse:</span> Rotate in plane</p>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="predict" className="flex-1 overflow-auto">
               {renderSequenceInput()}
-            </div>
-            <div className="w-full md:w-2/3 h-[300px] md:h-auto bg-black/5 relative">
-              <div ref={viewerRef} className="absolute inset-0" />
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 h-full bg-black/5 relative">
-            <div ref={viewerRef} className="absolute inset-0" />
-          </div>
-        )}
+            </TabsContent>
+            
+            {viewType === "docking" && (
+              <TabsContent value="ligand" className="flex-1 overflow-auto">
+                {renderLigandViewer()}
+              </TabsContent>
+            )}
+          </Tabs>
+        </div>
       </div>
     </div>
   );
 };
 
-
-export default MoleculeViewer;
+export default DemoMoleculeViewer;
