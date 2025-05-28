@@ -1,5 +1,6 @@
 
 import { toast } from "@/hooks/use-toast";
+import { apiConfigs } from "@/config/apiConfig";
 
 // Function to validate protein sequence (only allow valid amino acids)
 export const validateSequence = (sequence: string): boolean => {
@@ -27,6 +28,7 @@ export const cleanSequence = (sequence: string): string => {
 export const predictStructure = async (
   sequence: string,
   apiKey: string,
+  modelId: string = "esmfold"
 ): Promise<{ success: boolean; data?: string; error?: string; json?: any }> => {
   try {
     if (!validateSequence(sequence)) {
@@ -52,20 +54,23 @@ export const predictStructure = async (
       };
     }
 
-    // Call to proxy endpoint - Updated to use /api/esmfold
-    const options = {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'content-type': 'application/json',
-        'authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        sequence: cleanedSeq
-      })
+    // Get API configuration for the model
+    const apiConfig = apiConfigs[modelId] || apiConfigs.esmfold;
+    
+    // Prepare headers with authorization
+    const headers = {
+      ...apiConfig.headers,
+      'Authorization': `Bearer ${apiKey}`
     };
 
-    const response = await fetch("/api/esmfold", options);
+    const options = {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(apiConfig.getBody(cleanedSeq))
+    };
+
+    const endpoint = modelId === "alphafold2" ? "/api/alphafold2" : "/api/esmfold";
+    const response = await fetch(endpoint, options);
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -78,8 +83,8 @@ export const predictStructure = async (
     const data = await response.json();
     return { 
       success: true, 
-      data: data.pdb_string,
-      json: data // Include the raw response
+      data: data.pdb_string || data.pdbs?.[0],
+      json: data
     };
   } catch (error) {
     console.error("Error:", error);

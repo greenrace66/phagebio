@@ -57,6 +57,13 @@ const MoleculeViewer = ({
   } | null>(null);
   const [averageConfidence, setAverageConfidence] = useState<number | null>(null);
 
+  // Toggle additional viewer controls
+  const [showAdvancedControls, setShowAdvancedControls] = useState(false);
+  const [showAxes, setShowAxes] = useState(false);
+  const [showBoundingBox, setShowBoundingBox] = useState(false);
+  const [showFog, setShowFog] = useState(true);
+  const [showClipping, setShowClipping] = useState(false);
+
   useEffect(() => {
     if (!viewerRef.current) return;
 
@@ -193,41 +200,8 @@ const MoleculeViewer = ({
           colorTheme: { name: colorTheme }
         });
         
-        if (focusLigand || viewType === 'docking') {
-          try {
-            // Create a query for selecting ligands
-            const query = {
-              "kind": "composite",
-              "parts": [
-                { "kind": "atom-property", "property": "isHet" }
-              ]
-            };
-            
-            // Create ligand-specific structure with the query
-            const ligandStructure = await pluginRef.current.builders.structure.createStructure(model, {
-              name: 'ligand-only',
-              params: { query }
-            });
-            
-            // Add ball-and-stick representation for ligands with element coloring
-            await pluginRef.current.builders.structure.representation.addRepresentation(ligandStructure, {
-              type: 'ball-and-stick',
-              colorTheme: { name: 'element-symbol' }
-            });
-            
-            // Focus camera on ligands
-            await PluginCommands.Camera.Focus(pluginRef.current, { 
-              target: ligandStructure.ref 
-            });
-          } catch (ligandError) {
-            console.error('Failed to focus on ligand:', ligandError);
-            // If ligand focus fails, just reset the camera to show the whole structure
-            await PluginCommands.Camera.Reset(pluginRef.current, {});
-          }
-        } else {
-          // Auto-focus the structure
-          await PluginCommands.Camera.Reset(pluginRef.current, {});
-        }
+        // Auto-focus the structure
+        await PluginCommands.Camera.Reset(pluginRef.current, {});
       }
       
       toast({
@@ -703,13 +677,6 @@ const MoleculeViewer = ({
     );
   };
 
-  // Toggle additional viewer controls
-  const [showAdvancedControls, setShowAdvancedControls] = useState(false);
-  const [showAxes, setShowAxes] = useState(false);
-  const [showBoundingBox, setShowBoundingBox] = useState(false);
-  const [showFog, setShowFog] = useState(true);
-  const [showClipping, setShowClipping] = useState(false);
-  
   // Toggle viewer settings
   const toggleAxes = async () => {
     if (!pluginRef.current) return;

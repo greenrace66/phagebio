@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MoleculeViewer from "@/components/molecule/MoleculeViewer";
 import { ArrowLeft, Send, Download, Share, FileCode, Loader2 } from "lucide-react";
-import { validateSequence, cleanSequence } from "@/utils/proteinApi";
+import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
 import { supabase } from "@/integrations/supabase/client";
 import { models } from "@/config/models";
 import { ModelIcon } from "@/components/ui/model-icon";
@@ -84,47 +84,6 @@ const ModelDetail = () => {
     });
   };
 
-  const predictStructure = async (sequence: string, apiKey: string) => {
-    try {
-      const cleanedSeq = cleanSequence(sequence);
-      
-      const options = {
-        method: 'POST',
-        headers: {
-          ...model.headers,
-          'authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(model.requestBody(cleanedSeq))
-      };
-
-      const response = await fetch(model.apiEndpoint, options);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        return { 
-          success: false, 
-          error: errorData.message || "Failed to predict structure" 
-        };
-      }
-
-      const data = await response.json();
-      const parsed = model.responseParser(data);
-      
-      return { 
-        success: true, 
-        data: parsed.pdbString,
-        json: data,
-        error: parsed.error
-      };
-    } catch (error) {
-      console.error("Error:", error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : "Failed to fetch. Please check your network connection" 
-      };
-    }
-  };
-
   const handleSubmit = async () => {
     if (!user) {
       toast({ title: "Authentication Required", description: "Please sign in to predict structure.", variant: "destructive" });
@@ -191,7 +150,7 @@ const ModelDetail = () => {
       // For demo purposes, using demo API key
       const apiKey = "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";
       
-      const result = await predictStructure(sequence, apiKey);
+      const result = await predictStructure(sequence, apiKey, model.id);
       console.log('API Response:', result);
 
       clearInterval(progressInterval);
