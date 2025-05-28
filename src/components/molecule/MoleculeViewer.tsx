@@ -1,3 +1,4 @@
+
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +49,13 @@ const MoleculeViewer = ({
     confidence: number | null;
   }>({ pdbData: null, confidence: null });
   const [averageConfidence, setAverageConfidence] = useState<number | null>(null);
+
+  // Toggle additional viewer controls
+  const [showAdvancedControls, setShowAdvancedControls] = useState(false);
+  const [showAxes, setShowAxes] = useState(false);
+  const [showBoundingBox, setShowBoundingBox] = useState(false);
+  const [showFog, setShowFog] = useState(true);
+  const [showClipping, setShowClipping] = useState(false);
 
   useEffect(() => {
     if (!viewerRef.current) return;
@@ -201,7 +209,7 @@ const MoleculeViewer = ({
         });
       }, 1000);
       
-      const result = await predictStructure(sequence, apiKey);
+      const result = await predictStructure(sequence, apiKey, "esmfold");
       
       clearInterval(progressInterval);
       
@@ -362,13 +370,6 @@ const MoleculeViewer = ({
     }
   };
 
-  // Toggle additional viewer controls
-  const [showAdvancedControls, setShowAdvancedControls] = useState(false);
-  const [showAxes, setShowAxes] = useState(false);
-  const [showBoundingBox, setShowBoundingBox] = useState(false);
-  const [showFog, setShowFog] = useState(true);
-  const [showClipping, setShowClipping] = useState(false);
-  
   // Toggle viewer settings
   const toggleAxes = async () => {
     if (!pluginRef.current) return;
