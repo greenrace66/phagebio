@@ -24,6 +24,21 @@ import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
 import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
 
+// Import the modular MolStar utilities
+import {
+  loadStructureIntoMolstar,
+  updatePolymerView,
+  overPaintPolymer,
+  setStructureTransparency,
+  addPredictedPolymerRepresentation,
+  convertESMFoldToPredictionData,
+  PolymerViewType,
+  PolymerColorType,
+  PolymerRepresentation,
+  PocketRepresentation,
+  PredictionData
+} from '@/utils/molstar';
+
 interface MoleculeViewerProps {
   initialStyle?: string;
   pdb?: string;
@@ -48,6 +63,19 @@ const MoleculeViewer = ({
     confidence: number | null;
   }>({ pdbData: null, confidence: null });
   const [averageConfidence, setAverageConfidence] = useState<number | null>(null);
+  
+  // Advanced MolStar states
+  const [polymerRepresentations, setPolymerRepresentations] = useState<PolymerRepresentation[]>([]);
+  const [predictedPolymerRepresentations, setPredictedPolymerRepresentations] = useState<PolymerRepresentation[]>([]);
+  const [pocketRepresentations, setPocketRepresentations] = useState<PocketRepresentation[]>([]);
+  const [currentPolymerView, setCurrentPolymerView] = useState<PolymerViewType>(
+    initialStyle === 'cartoon' ? PolymerViewType.Cartoon : 
+    initialStyle === 'spacefill' || initialStyle === 'licorice' ? PolymerViewType.Atoms : 
+    PolymerViewType.Gaussian_Surface
+  );
+  const [currentColorType, setCurrentColorType] = useState<PolymerColorType>(PolymerColorType.White);
+  const [structureTransparency, setStructureTransparency] = useState<number>(1);
+  const [showConfidentResidues, setShowConfidentResidues] = useState<boolean>(false);
 
   useEffect(() => {
     if (!viewerRef.current) return;
@@ -128,34 +156,71 @@ const MoleculeViewer = ({
       // Clear existing structures
       await pluginRef.current.clear();
       
-      // Load from PDB string data
-      const data = await pluginRef.current.builders.data.rawData({
-        data: pdbData,
-        label: 'Predicted Structure'
-      });
-      const trajectory = await pluginRef.current.builders.structure.parseTrajectory(data, 'pdb');
-      const model = await pluginRef.current.builders.structure.createModel(trajectory);
-      const structure = await pluginRef.current.builders.structure.createStructure(model);
+      // Create a blob URL for the PDB data
+      const blob = new Blob([pdbData], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      
+      // Load structure using the advanced function
+      const [model, structure, polymerReps] = await loadStructureIntoMolstar(
+        pluginRef.current, 
+        url,
+        structureTransparency
+      );
+      
+      // Store the polymer representations
+      setPolymerRepresentations(polymerReps);
       
       // Calculate average confidence
       const avgConf = calculateAverageConfidence(structure.data);
       setAverageConfidence(avgConf);
       
-      // Apply representation with bfactor coloring for predictions
-      await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-        type: initialStyle === 'cartoon' ? 'cartoon' : 
-              initialStyle === 'spacefill' ? 'spacefill' :
-              initialStyle === 'licorice' ? 'ball-and-stick' : 'surface',
-        colorTheme: { name: 'atom-test' } // Use b-factor coloring for pLDDT
-      });
+      // If this is a prediction, create predicted polymer representations
+      if (structureSource === "prediction" && pdbData) {
+        // Extract confidence scores from B-factors
+        const confidenceScores: number[] = [];
+        const lines = pdbData.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('ATOM')) {
+            const bFactor = parseFloat(line.substring(60, 66).trim());
+            if (!isNaN(bFactor) && !confidenceScores.includes(bFactor)) {
+              confidenceScores.push(bFactor);
+            }
+          }
+        }
+        
+        // Create a prediction data object
+        const predictionData = convertESMFoldToPredictionData(pdbData, confidenceScores);
+        
+        // Add predicted polymer representations if needed
+        if (predictionData.structure.scores.plddt && predictionData.structure.scores.plddt.length > 0) {
+          const predictedReps = await addPredictedPolymerRepresentation(
+            pluginRef.current,
+            predictionData,
+            structure
+          );
+          setPredictedPolymerRepresentations(predictedReps);
+        }
+      }
+      
+      // Update the polymer view to show the current representation
+      updatePolymerView(
+        currentPolymerView,
+        pluginRef.current,
+        polymerReps,
+        predictedPolymerRepresentations,
+        showConfidentResidues
+      );
       
       // Auto-focus the structure
       await PluginCommands.Camera.Reset(pluginRef.current, {});
       
+      // Clean up the blob URL
+      URL.revokeObjectURL(url);
+      
       setStructureSource("prediction");
       toast({
         title: "Structure loaded",
-        description: "Successfully loaded predicted structure",
+        description: "Successfully loaded structure",
       });
     } catch (error) {
       console.error('Structure loading error:', error);
@@ -260,43 +325,34 @@ const MoleculeViewer = ({
     if (!pluginRef.current) return;
 
     try {
-      // Get current structure
-      const structures = pluginRef.current.managers.structure.hierarchy.current.structures;
-      if (structures.length === 0) return;
-
-      const structure = structures[0];
-      
-      // Remove existing representations
-      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
-      for (const repr of reprs) {
-        await PluginCommands.State.RemoveObject(pluginRef.current, { state: repr.parent!, ref: repr.transform.ref });
-      }
-
-      // Add new representation
-      const reprType = style === 'cartoon' ? 'cartoon' : 
-                      style === 'spacefill' ? 'spacefill' :
-                      style === 'licorice' ? 'ball-and-stick' : 'surface';
-      
-      // Use appropriate coloring based on structure source
-      let colorTheme;
-      if (structureSource === 'prediction') {
-        // Always use pLDDT coloring for predictions
-        colorTheme = 'atom-test';
-      } else {
-        // For PDB structures, use the current color scheme
-        const currentColorSelect = document.querySelector('select[placeholder="Color"]') as HTMLSelectElement;
-        const currentColor = currentColorSelect?.value || 'bfactor';
-        
-        colorTheme = currentColor === 'chainname' ? 'chain-id' : 
-                    currentColor === 'residueindex' ? 'residue-name' :
-                    currentColor === 'atomindex' ? 'element-symbol' :
-                    currentColor === 'bfactor' ? 'atom-test' : 'chain-id';
+      // Map style string to PolymerViewType
+      let viewType: PolymerViewType;
+      switch (style) {
+        case 'cartoon':
+          viewType = PolymerViewType.Cartoon;
+          break;
+        case 'spacefill':
+        case 'licorice':
+          viewType = PolymerViewType.Atoms;
+          break;
+        case 'surface':
+          viewType = PolymerViewType.Gaussian_Surface;
+          break;
+        default:
+          viewType = PolymerViewType.Cartoon;
       }
       
-      await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-        type: reprType,
-        colorTheme: { name: colorTheme }
-      });
+      // Update the current polymer view
+      setCurrentPolymerView(viewType);
+      
+      // Update the view using the advanced function
+      updatePolymerView(
+        viewType,
+        pluginRef.current,
+        polymerRepresentations,
+        predictedPolymerRepresentations,
+        showConfidentResidues
+      );
     } catch (error) {
       console.error('Style change error:', error);
     }
@@ -307,47 +363,70 @@ const MoleculeViewer = ({
     if (!pluginRef.current) return;
 
     try {
-      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
-      if (reprs.length === 0) return;
-
-      // Map color schemes to Mol* color themes
-      let colorThemeName;
+      // Map color scheme string to PolymerColorType
+      let colorType: PolymerColorType;
+      switch (colorScheme) {
+        case 'chainname':
+          colorType = PolymerColorType.Chain;
+          break;
+        case 'residueindex':
+          colorType = PolymerColorType.Residue;
+          break;
+        case 'atomindex':
+          colorType = PolymerColorType.Element;
+          break;
+        case 'bfactor':
+          colorType = PolymerColorType.AlphaFold;
+          break;
+        default:
+          colorType = PolymerColorType.White;
+      }
       
-      // For prediction structures, always use atom-test (pLDDT) if bfactor is selected
-      if (structureSource === 'prediction') {
-        // Always use pLDDT coloring for predictions
-        colorThemeName = 'atom-test';
-      } else {
-        // For other cases, map to appropriate color themes
-        switch (colorScheme) {
-          case 'chainname':
-            colorThemeName = 'chain-id';
-            break;
-          case 'residueindex':
-            colorThemeName = 'residue-name';
-            break;
-          case 'atomindex':
-            colorThemeName = 'element-symbol';
-            break;
-          case 'bfactor':
-            colorThemeName = 'atom-test';
-            break;
-          default:
-            colorThemeName = 'chain-id';
-        }
-      }
-
-      for (const repr of reprs) {
-        await PluginCommands.State.Update(pluginRef.current, {
-          state: repr.parent!,
-          tree: repr,
-          params: {
-            colorTheme: { name: colorThemeName }
-          }
-        });
-      }
+      // Update the current color type
+      setCurrentColorType(colorType);
+      
+      // Create a minimal prediction data object for coloring
+      const predictionData: PredictionData = {
+        structure: {
+          indices: [], // Would need to be populated from actual data
+          scores: {
+            plddt: [] // Would need to be populated from actual data
+          },
+          regions: []
+        },
+        pockets: []
+      };
+      
+      // Apply the color using the advanced function
+      await overPaintPolymer(
+        colorType,
+        pluginRef.current,
+        predictionData,
+        polymerRepresentations,
+        predictedPolymerRepresentations,
+        pocketRepresentations
+      );
     } catch (error) {
       console.error('Color change error:', error);
+    }
+  };
+
+  // Handle transparency changes
+  const handleTransparencyChange = async (value: number) => {
+    if (!pluginRef.current) return;
+    
+    try {
+      // Update the transparency state
+      setStructureTransparency(value);
+      
+      // Apply transparency using the advanced function
+      await setStructureTransparency(
+        pluginRef.current,
+        value,
+        polymerRepresentations
+      );
+    } catch (error) {
+      console.error('Transparency change error:', error);
     }
   };
 
@@ -410,11 +489,32 @@ const MoleculeViewer = ({
     }
   };
   
+  // Toggle confident residues
+  const toggleConfidentResidues = () => {
+    setShowConfidentResidues(!showConfidentResidues);
+    if (pluginRef.current) {
+      updatePolymerView(
+        currentPolymerView,
+        pluginRef.current,
+        polymerRepresentations,
+        predictedPolymerRepresentations,
+        !showConfidentResidues
+      );
+    }
+  };
+  
   return (
     <div className="flex flex-col h-full">
       <div className="bg-muted/30 border-b px-2 sm:px-4 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-start sm:justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Select defaultValue="cartoon" onValueChange={handleStyleChange}>
+          <Select 
+            defaultValue={
+              currentPolymerView === PolymerViewType.Cartoon ? "cartoon" :
+              currentPolymerView === PolymerViewType.Atoms ? "licorice" :
+              "surface"
+            } 
+            onValueChange={handleStyleChange}
+          >
             <SelectTrigger className="w-24 sm:w-32 h-8 text-xs">
               <SelectValue placeholder="Style" />
             </SelectTrigger>
@@ -426,7 +526,16 @@ const MoleculeViewer = ({
             </SelectContent>
           </Select>
           
-          <Select defaultValue="bfactor" onValueChange={handleColorChange}>
+          <Select 
+            defaultValue={
+              currentColorType === PolymerColorType.Chain ? "chainname" :
+              currentColorType === PolymerColorType.Residue ? "residueindex" :
+              currentColorType === PolymerColorType.Element ? "atomindex" :
+              currentColorType === PolymerColorType.AlphaFold ? "bfactor" :
+              "bfactor"
+            } 
+            onValueChange={handleColorChange}
+          >
             <SelectTrigger className="w-24 sm:w-32 h-8 text-xs">
               <SelectValue placeholder="Color" />
             </SelectTrigger>
@@ -497,6 +606,32 @@ const MoleculeViewer = ({
           >
             {showClipping ? "Clipping On" : "Clipping Off"}
           </Button>
+          
+          {/* New transparency slider */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs">Transparency:</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={structureTransparency}
+              onChange={(e) => handleTransparencyChange(parseFloat(e.target.value))}
+              className="w-24"
+            />
+          </div>
+          
+          {/* Confident residues toggle for predictions */}
+          {structureSource === "prediction" && predictedPolymerRepresentations.length > 0 && (
+            <Button
+              variant={showConfidentResidues ? "default" : "outline"}
+              size="sm"
+              onClick={toggleConfidentResidues}
+              className="h-8 text-xs"
+            >
+              {showConfidentResidues ? "All Residues" : "Confident Only"}
+            </Button>
+          )}
         </div>
       )}
       
