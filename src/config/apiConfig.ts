@@ -20,8 +20,11 @@ export const apiConfigs: Record<string, ApiConfig> = {
     getBody: (sequence: string) => ({
       sequence: sequence,
       algorithm: "mmseqs2",
-      databases: ["uniref90"],
-      skip_template_search: true
+      e_value: 0.0001,
+      iterations: 1,
+      databases: ["small_bfd"],
+      relax_prediction: False,
+      skip_template_search: True
     })
   }
 };
