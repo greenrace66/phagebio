@@ -17,7 +17,7 @@ import { validateSequence, cleanSequence, predictStructure } from "@/utils/prote
 import { supabase } from "@/integrations/supabase/client";
 import { models } from "@/config/models";
 import { ModelIcon } from "@/components/ui/model-icon";
-
+const NVIDIA_API = process.env.NVIDIA_API;
 const ModelDetail = () => {
   const { modelId } = useParams();
   const navigate = useNavigate();
@@ -148,7 +148,7 @@ const ModelDetail = () => {
 
     try {
       // For demo purposes, using demo API key
-      const apiKey = process.env.NVIDIA_API;
+      const apiKey = NVIDIA_API;
       
       const result = await predictStructure(sequence, apiKey, model.id);
       console.log('API Response:', result);

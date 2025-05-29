@@ -24,7 +24,7 @@ import { ColorTheme } from 'molstar/lib/mol-theme/color';
 import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
 import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
-
+const NVIDIA_API = process.env.NVIDIA_API;
 interface MoleculeViewerProps {
   initialPdbId?: string;
   initialStyle?: string;
@@ -262,7 +262,7 @@ const MoleculeViewer = ({
     
     try {
       // For demo purposes, we're using a demo API key from ModelDetail.tsx
-      const apiKey = process.env.NVIDIA_API;
+      const apiKey = NVIDIA_API;
       
       const apiResult = await predictStructure(sequence, apiKey);
       console.log('API Response:', apiResult);
