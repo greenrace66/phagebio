@@ -24,7 +24,6 @@ import { ColorTheme } from 'molstar/lib/mol-theme/color';
 import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
 import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
-const NVIDIA_API = process.env.NVIDIA_API;
 interface MoleculeViewerProps {
   initialPdbId?: string;
   initialStyle?: string;

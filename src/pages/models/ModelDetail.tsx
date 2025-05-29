@@ -17,7 +17,6 @@ import { validateSequence, cleanSequence, predictStructure } from "@/utils/prote
 import { supabase } from "@/integrations/supabase/client";
 import { models } from "@/config/models";
 import { ModelIcon } from "@/components/ui/model-icon";
-const NVIDIA_API = process.env.NVIDIA_API;
 const ModelDetail = () => {
   const { modelId } = useParams();
   const navigate = useNavigate();
