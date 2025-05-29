@@ -262,7 +262,7 @@ const MoleculeViewer = ({
     
     try {
       // For demo purposes, we're using a demo API key from ModelDetail.tsx
-      const apiKey = NVIDIA_API;
+      const apiKey = "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";
       
       const apiResult = await predictStructure(sequence, apiKey);
       console.log('API Response:', apiResult);
