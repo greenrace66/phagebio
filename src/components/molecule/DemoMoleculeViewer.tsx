@@ -18,12 +18,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DefaultPluginSpec } from 'molstar/lib/mol-plugin/spec';
 import { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { PluginCommands } from 'molstar/lib/mol-plugin/commands';
-import { StateSelection } from 'molstar/lib/mol-state';
-import { StructureRepresentationPresetProvider } from 'molstar/lib/mol-plugin-state/builder/structure/representation-preset';
-import { ColorTheme } from 'molstar/lib/mol-theme/color';
-import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
 import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
+
 interface MoleculeViewerProps {
   initialPdbId?: string;
   initialStyle?: string;
@@ -55,6 +52,7 @@ const MoleculeViewer = ({
     error?: string;
   } | null>(null);
   const [averageConfidence, setAverageConfidence] = useState<number | null>(null);
+  const [selectedModel, setSelectedModel] = useState<"esmfold" | "alphafold2">("esmfold");
 
   // Toggle additional viewer controls
   const [showAdvancedControls, setShowAdvancedControls] = useState(false);
@@ -79,13 +77,7 @@ const MoleculeViewer = ({
             initial: {
               isExpanded: false,
               showControls: true,
-              controlsDisplay: 'reactive'
-            },
-            controls: {
-              left: { collapsed: false },
-              right: { collapsed: false },
-              top: { collapsed: false },
-              bottom: { collapsed: false }
+              controlsDisplay: 'reactive' as const
             }
           }
         };
@@ -167,10 +159,12 @@ const MoleculeViewer = ({
         setAverageConfidence(avgConf);
         
         // Always use atom-test (pLDDT) coloring for predicted structures
+        const reprType = initialStyle === 'cartoon' ? 'cartoon' : 
+                         initialStyle === 'spacefill' ? 'spacefill' :
+                         initialStyle === 'licorice' ? 'ball-and-stick' : 'cartoon';
+        
         await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-          type: initialStyle === 'cartoon' ? 'cartoon' : 
-                initialStyle === 'spacefill' ? 'spacefill' :
-                initialStyle === 'licorice' ? 'ball-and-stick' : 'surface',
+          type: reprType,
           colorTheme: { name: 'atom-test' } // Use b-factor coloring for pLDDT confidence
         });
       } else {
@@ -192,10 +186,12 @@ const MoleculeViewer = ({
                           initialColor === 'atomindex' ? 'element-symbol' : 
                           initialColor === 'bfactor' ? 'atom-test' : 'chain-id';
         
+        const reprType = initialStyle === 'cartoon' ? 'cartoon' : 
+                         initialStyle === 'spacefill' ? 'spacefill' :
+                         initialStyle === 'licorice' ? 'ball-and-stick' : 'cartoon';
+        
         await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-          type: initialStyle === 'cartoon' ? 'cartoon' : 
-                initialStyle === 'spacefill' ? 'spacefill' :
-                initialStyle === 'licorice' ? 'ball-and-stick' : 'surface',
+          type: reprType,
           colorTheme: { name: colorTheme }
         });
         
@@ -263,24 +259,20 @@ const MoleculeViewer = ({
       // For demo purposes, we're using a demo API key from ModelDetail.tsx
       const apiKey = "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";
       
-      const apiResult = await predictStructure(sequence, apiKey);
+      const apiResult = await predictStructure(sequence, apiKey, selectedModel);
       console.log('API Response:', apiResult);
 
       clearInterval(progressInterval);
       setProgress(100);
       
-      if (apiResult.success) {
-        // Convert JSON response to PDB format if needed
-        const pdbString = apiResult.json?.pdbs?.[0] || apiResult.data;
+      if (apiResult.success && apiResult.data) {
         setResult({
-          pdbString: pdbString,
+          pdbString: apiResult.data,
           json: apiResult.json
         });
         
         // Load the predicted structure
-        if (pdbString) {
-          loadStructure("", pdbString);
-        }
+        loadStructure("", apiResult.data);
         
         toast({
           title: "Success",
@@ -592,6 +584,21 @@ const MoleculeViewer = ({
         
         <form onSubmit={handlePrediction} className="space-y-4">
           <div className="space-y-2">
+            <label htmlFor="model-select" className="text-sm font-medium">
+              Model
+            </label>
+            <Select value={selectedModel} onValueChange={(value: "esmfold" | "alphafold2") => setSelectedModel(value)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select model" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="esmfold">ESMFold (1 credit)</SelectItem>
+                <SelectItem value="alphafold2">AlphaFold2 (2 credits)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
             <label htmlFor="sequence" className="text-sm font-medium">
               Protein Sequence
             </label>
@@ -634,7 +641,7 @@ const MoleculeViewer = ({
           </div>
           
           <p className="text-xs text-muted-foreground mt-2">
-            COST : 1 credit (Demo mode)
+            COST : {selectedModel === 'alphafold2' ? '2' : '1'} credit (Demo mode)
           </p>
           
           {/* Confidence color legend */}
@@ -876,7 +883,7 @@ const MoleculeViewer = ({
         {viewType === "docking" ? (
           <div className="flex flex-col md:flex-row w-full">
             <div className="w-full md:w-1/2 md:border-r border-b md:border-b-0">
-              {renderLigandViewer()}
+              {/* {renderLigandViewer()} */}
             </div>
             <div className="w-full md:w-1/2 h-[300px] md:h-auto bg-black/5 relative">
               <div ref={viewerRef} className="absolute inset-0" />

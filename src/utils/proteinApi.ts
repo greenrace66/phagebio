@@ -24,6 +24,15 @@ export const cleanSequence = (sequence: string): string => {
     .toUpperCase();
 };
 
+// Function to convert AlphaFold2 array response to PDB string
+const convertAlphaFold2ResponseToPdb = (response: any): string => {
+  if (Array.isArray(response) && response.length > 0) {
+    // AlphaFold2 returns an array with PDB content as the first element
+    return response[0];
+  }
+  return response;
+};
+
 // Function to predict protein structure using proxy endpoints
 export const predictStructure = async (
   sequence: string,
@@ -81,9 +90,20 @@ export const predictStructure = async (
     }
 
     const data = await response.json();
+    
+    // Handle different response formats based on model
+    let pdbString;
+    if (modelId === "alphafold2") {
+      // AlphaFold2 returns an array format
+      pdbString = convertAlphaFold2ResponseToPdb(data);
+    } else {
+      // ESMFold returns an object with pdbs array or pdb_string
+      pdbString = data.pdb_string || data.pdbs?.[0];
+    }
+    
     return { 
       success: true, 
-      data: data.pdb_string || data.pdbs?.[0],
+      data: pdbString,
       json: data
     };
   } catch (error) {

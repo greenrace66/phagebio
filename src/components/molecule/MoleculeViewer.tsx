@@ -18,10 +18,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DefaultPluginSpec } from 'molstar/lib/mol-plugin/spec';
 import { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { PluginCommands } from 'molstar/lib/mol-plugin/commands';
-import { StateSelection } from 'molstar/lib/mol-state';
-import { StructureRepresentationPresetProvider } from 'molstar/lib/mol-plugin-state/builder/structure/representation-preset';
-import { ColorTheme } from 'molstar/lib/mol-theme/color';
-import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
 import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
 
@@ -52,10 +48,6 @@ const MoleculeViewer = ({
 
   // Toggle additional viewer controls
   const [showAdvancedControls, setShowAdvancedControls] = useState(false);
-  const [showAxes, setShowAxes] = useState(false);
-  const [showBoundingBox, setShowBoundingBox] = useState(false);
-  const [showFog, setShowFog] = useState(true);
-  const [showClipping, setShowClipping] = useState(false);
 
   useEffect(() => {
     if (!viewerRef.current) return;
@@ -73,7 +65,7 @@ const MoleculeViewer = ({
             initial: {
               isExpanded: false,
               showControls: true,
-              controlsDisplay: 'reactive'
+              controlsDisplay: 'reactive' as const
             }
           }
         };
@@ -150,11 +142,13 @@ const MoleculeViewer = ({
       setAverageConfidence(avgConf);
       
       // Apply representation with bfactor coloring for predictions
+      const reprType = initialStyle === 'cartoon' ? 'cartoon' : 
+                      initialStyle === 'spacefill' ? 'spacefill' :
+                      initialStyle === 'licorice' ? 'ball-and-stick' : 'cartoon';
+      
       await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-        type: initialStyle === 'cartoon' ? 'cartoon' : 
-              initialStyle === 'spacefill' ? 'spacefill' :
-              initialStyle === 'licorice' ? 'ball-and-stick' : 'surface',
-        colorTheme: { name: 'atom-test' } // Use b-factor coloring for pLDDT
+        type: reprType,
+        colorTheme: { name: 'atom-test' }
       });
       
       // Auto-focus the structure
@@ -275,15 +269,16 @@ const MoleculeViewer = ({
       const structure = structures[0];
       
       // Remove existing representations
-      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
+      const state = pluginRef.current.state.data;
+      const reprs = state.selectQ(q => q.ofType(pluginRef.current.managers.structure.representation.StructureRepresentation3D));
       for (const repr of reprs) {
-        await PluginCommands.State.RemoveObject(pluginRef.current, { state: repr.parent!, ref: repr.transform.ref });
+        await PluginCommands.State.RemoveObject(pluginRef.current, { state, ref: repr.transform.ref });
       }
 
       // Add new representation
       const reprType = style === 'cartoon' ? 'cartoon' : 
                       style === 'spacefill' ? 'spacefill' :
-                      style === 'licorice' ? 'ball-and-stick' : 'surface';
+                      style === 'licorice' ? 'ball-and-stick' : 'cartoon';
       
       // Use appropriate coloring based on structure source
       let colorTheme;
@@ -315,7 +310,8 @@ const MoleculeViewer = ({
     if (!pluginRef.current) return;
 
     try {
-      const reprs = pluginRef.current.managers.structure.hierarchy.current.representations;
+      const state = pluginRef.current.state.data;
+      const reprs = state.selectQ(q => q.ofType(pluginRef.current.managers.structure.representation.StructureRepresentation3D));
       if (reprs.length === 0) return;
 
       // Map color schemes to Mol* color themes
@@ -347,9 +343,9 @@ const MoleculeViewer = ({
 
       for (const repr of reprs) {
         await PluginCommands.State.Update(pluginRef.current, {
-          state: repr.parent!,
+          state,
           tree: repr,
-          params: {
+          options: {
             colorTheme: { name: colorThemeName }
           }
         });
@@ -369,47 +365,6 @@ const MoleculeViewer = ({
       console.error('Reset view error:', error);
     }
   };
-
-  // Toggle viewer settings
-  const toggleAxes = async () => {
-    if (!pluginRef.current) return;
-    try {
-      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { axes: showAxes ? 'off' : 'on' } } });
-      setShowAxes(!showAxes);
-    } catch (error) {
-      console.error('Toggle axes error:', error);
-    }
-  };
-  
-  const toggleBoundingBox = async () => {
-    if (!pluginRef.current) return;
-    try {
-      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { boundingBox: showBoundingBox ? 'off' : 'on' } } });
-      setShowBoundingBox(!showBoundingBox);
-    } catch (error) {
-      console.error('Toggle bounding box error:', error);
-    }
-  };
-  
-  const toggleFog = async () => {
-    if (!pluginRef.current) return;
-    try {
-      await pluginRef.current.canvas3d?.setProps({ cameraFog: { name: showFog ? 'off' : 'on' } });
-      setShowFog(!showFog);
-    } catch (error) {
-      console.error('Toggle fog error:', error);
-    }
-  };
-  
-  const toggleClipping = async () => {
-    if (!pluginRef.current) return;
-    try {
-      await pluginRef.current.canvas3d?.setProps({ cameraClipping: { far: showClipping ? 100 : 1 } });
-      setShowClipping(!showClipping);
-    } catch (error) {
-      console.error('Toggle clipping error:', error);
-    }
-  };
   
   return (
     <div className="flex flex-col h-full">
@@ -423,7 +378,6 @@ const MoleculeViewer = ({
               <SelectItem value="cartoon">Cartoon</SelectItem>
               <SelectItem value="spacefill">Sphere</SelectItem>
               <SelectItem value="licorice">Stick</SelectItem>
-              <SelectItem value="surface">Surface</SelectItem>
             </SelectContent>
           </Select>
           
@@ -463,43 +417,6 @@ const MoleculeViewer = ({
           )}
         </div>
       </div>
-      
-      {showAdvancedControls && (
-        <div className="bg-muted/20 border-b px-2 sm:px-4 py-2 flex flex-wrap items-center gap-2">
-          <Button 
-            variant={showAxes ? "default" : "outline"} 
-            size="sm" 
-            onClick={toggleAxes} 
-            className="h-8 text-xs"
-          >
-            {showAxes ? "Hide Axes" : "Show Axes"}
-          </Button>
-          <Button 
-            variant={showBoundingBox ? "default" : "outline"} 
-            size="sm" 
-            onClick={toggleBoundingBox} 
-            className="h-8 text-xs"
-          >
-            {showBoundingBox ? "Hide Box" : "Show Box"}
-          </Button>
-          <Button 
-            variant={showFog ? "default" : "outline"} 
-            size="sm" 
-            onClick={toggleFog} 
-            className="h-8 text-xs"
-          >
-            {showFog ? "Fog On" : "Fog Off"}
-          </Button>
-          <Button 
-            variant={showClipping ? "default" : "outline"} 
-            size="sm" 
-            onClick={toggleClipping} 
-            className="h-8 text-xs"
-          >
-            {showClipping ? "Clipping On" : "Clipping Off"}
-          </Button>
-        </div>
-      )}
       
       <div className="flex flex-col md:flex-row flex-1">
         <div className="flex-1 h-[300px] md:h-full bg-black/5 relative">
