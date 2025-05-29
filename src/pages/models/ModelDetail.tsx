@@ -148,7 +148,7 @@ const ModelDetail = () => {
 
     try {
       // For demo purposes, using demo API key
-      const apiKey = "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";
+      const apiKey = process.env.NVIDIA_API;
       
       const result = await predictStructure(sequence, apiKey, model.id);
       console.log('API Response:', result);
