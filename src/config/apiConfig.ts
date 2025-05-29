@@ -23,8 +23,8 @@ export const apiConfigs: Record<string, ApiConfig> = {
     "e_value": 0.0001,
     "iterations": 1,
     "databases": ["small_bfd"],
-    "relax_prediction": "False",
-    "skip_template_search" : "True"
+    "relax_prediction": false,
+    "skip_template_search" : true
     })
   }
 };
