@@ -1,4 +1,3 @@
-
 // @ts-nocheck
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,7 @@ import { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { PluginCommands } from 'molstar/lib/mol-plugin/commands';
 import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
-import { StructureRepresentation3D } from 'molstar/lib/mol-plugin-state/objects';
+import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
 import { Structure } from 'molstar/lib/mol-model/structure';
 import { StateObjectRef, StateObjectCell } from "molstar/lib/mol-state";
 
@@ -303,7 +302,7 @@ const MoleculeViewer = ({
       // Remove existing representations for this structure
       const existingRepresentations = state.selectQ(q => 
         q.rootRef(structureCell.transform.ref) // Representations are children of the structure
-         .ofType(StructureRepresentation3D)
+         .ofType(PluginStateObject.Structure.Representation3D)
       );
       
       const update = state.build();
@@ -345,7 +344,7 @@ const MoleculeViewer = ({
     
     try {
       const state = pluginRef.current.state.data;
-      const reprs = state.selectQ(q => q.ofType(StructureRepresentation3D));
+      const reprs = state.selectQ(q => q.ofType(PluginStateObject.Structure.Representation3D));
       if (reprs.length === 0) return;
 
       let colorThemeName;
