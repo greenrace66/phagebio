@@ -22,8 +22,6 @@ import { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { PluginCommands } from 'molstar/lib/mol-plugin/commands';
 import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
-import { Structure } from "molstar/lib/mol-model/structure"; // Added for calculateAverageConfidence
-import { StateObjectRef } from "molstar/lib/mol-state";
 
 interface MoleculeViewerProps {
   initialPdbId?: string;
@@ -34,7 +32,7 @@ interface MoleculeViewerProps {
 }
 
 const MoleculeViewer = ({ 
-  initialPdbId = "1crn", // Default PDB for standard/docking
+  initialPdbId = "1crn",
   initialStyle = "cartoon",
   initialColor = "chainname",
   focusLigand = false, // Prop kept, but related button removed
@@ -45,51 +43,53 @@ const MoleculeViewer = ({
   // pdbId state and setPdbId removed
   const { toast } = useToast();
   
-  // Structure prediction states
+  // Structure prediction states (remain unchanged)
   const [sequence, setSequence] = useState("");
   const [predicting, setPredicting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [structureSource, setStructureSource] = useState<"pdb" | "prediction">("pdb");
   const [result, setResult] = useState<{
     pdbString?: string;
-    json?: any; // from API if needed
+    json?: any;
     error?: string;
   } | null>(null);
   const [averageConfidence, setAverageConfidence] = useState<number | null>(null);
   const [selectedModel, setSelectedModel] = useState<"esmfold" | "alphafold2">("esmfold");
 
-  // State for advanced controls removed
+  // State for advanced controls removed:
+  // showAdvancedControls, showAxes, showBoundingBox, showFog, showClipping
 
   useEffect(() => {
-    // ... keep existing code (initMolstar setup)
     if (!viewerRef.current) return;
 
     const initMolstar = async () => {
       try {
         // Create canvas element
         const canvas = document.createElement('canvas');
-        if (viewerRef.current) { 
-            viewerRef.current.innerHTML = ''; 
+        if (viewerRef.current) { // Ensure viewerRef.current is not null
+            viewerRef.current.innerHTML = ''; // Clear previous canvas if any
             viewerRef.current.appendChild(canvas);
         }
 
+
+        // Initialize Mol* plugin
         const spec = {
           ...DefaultPluginSpec(),
           layout: {
             initial: {
-              isExpanded: true, 
-              showControls: true, // Native Mol* controls enabled
+              isExpanded: true, // Set to true to show controls by default
+              showControls: true,
               controlsDisplay: 'reactive' as const
             }
           },
-          components: { 
+          components: { // Ensure essential components are enabled
             remoteState: 'none',
           }
         };
         const plugin = new PluginContext(spec);
         await plugin.init();
         
-        if (viewerRef.current) { 
+        if (viewerRef.current) { // Check again before calling initViewer
             plugin.initViewer(canvas, viewerRef.current);
         }
         pluginRef.current = plugin;
@@ -97,12 +97,9 @@ const MoleculeViewer = ({
         // Load the protein structure with initial style for non-prediction views
         if (viewType !== "prediction" && initialPdbId) {
           loadStructure(initialPdbId);
-          setStructureSource("pdb"); // Ensure source is set for initial PDB ID load
-        } else if (viewType === "prediction") {
-          setStructureSource("prediction"); // Default for prediction view
         }
 
-
+        // Handle window resize
         const handleResize = () => {
           plugin.canvas3d?.handleResize();
         };
@@ -123,78 +120,81 @@ const MoleculeViewer = ({
     };
 
     initMolstar();
+  // initialPdbId is used for initial load, viewType determines behavior
   // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [initialPdbId, viewType]); // Removed toast from deps
+  }, [initialPdbId, viewType, toast]); // Added toast to dependency array
 
-  const calculateAverageConfidence = (structureData: Structure | undefined) => {
-    if (!structureData || !structureData.units) return null;
+  const calculateAverageConfidence = (structure: any) => {
+    if (!structure) return null;
     
     let totalBfactor = 0;
     let atomCount = 0;
     
-    for (const unit of structureData.units) {
+    // Iterate through structure units and atoms
+    for (const unit of structure.units) {
       const { elements } = unit;
       const bFactors = unit.model.atomicConformation.B_iso_or_equiv;
       
-      if (elements && typeof elements.length === 'number') {
-        for (let i = 0; i < elements.length; i++) {
-          totalBfactor += bFactors.value(elements[i]);
-          atomCount++;
-        }
+      for (let i = 0; i < elements.length; i++) {
+        totalBfactor += bFactors.value(elements[i]);
+        atomCount++;
       }
     }
     
     return atomCount > 0 ? totalBfactor / atomCount : null;
   };
 
-  const loadStructure = async (idOrLabel: string, pdbData?: string) => {
+  const loadStructure = async (id: string, pdbData?: string) => {
     if (!pluginRef.current) return;
     
     try {
+      // Clear existing structures
       await pluginRef.current.clear();
       
-      let loadedStructureRef: StateObjectRef<Structure>; // To hold the structure reference for representations
-      let structureObj: Structure | undefined;
+      let data;
+      let loadedStructureRef; // To hold the structure reference for representations
 
       if (pdbData) {
-        const data = await pluginRef.current.builders.data.rawData({
+        // Load from PDB string data
+        data = await pluginRef.current.builders.data.rawData({
           data: pdbData,
-          label: idOrLabel // Use idOrLabel as label
+          label: 'Predicted Structure'
         });
         const trajectory = await pluginRef.current.builders.structure.parseTrajectory(data, 'pdb');
         const model = await pluginRef.current.builders.structure.createModel(trajectory);
         loadedStructureRef = await pluginRef.current.builders.structure.createStructure(model);
         
-        structureObj = loadedStructureRef.cell?.obj?.data;
         setStructureSource("prediction");
         
-        const avgConf = calculateAverageConfidence(structureObj);
+        // Calculate average confidence for predicted structures
+        const avgConf = calculateAverageConfidence(loadedStructureRef.data);
         setAverageConfidence(avgConf);
         
+        // Always use atom-test (pLDDT) coloring for predicted structures
         const reprType = initialStyle === 'cartoon' ? 'cartoon' : 
                          initialStyle === 'spacefill' ? 'spacefill' :
                          initialStyle === 'licorice' ? 'ball-and-stick' : 'cartoon';
         
         await pluginRef.current.builders.structure.representation.addRepresentation(loadedStructureRef, {
           type: reprType,
-          colorTheme: { name: 'atom-test' } 
+          colorTheme: { name: 'atom-test' } // Use b-factor coloring for pLDDT confidence
         });
       } else {
-        // Load from PDB ID (idOrLabel is PDB ID here)
-        const data = await pluginRef.current.builders.data.download({
-          url: `https://files.rcsb.org/download/${idOrLabel}.cif`, 
+        // Load from PDB ID
+        data = await pluginRef.current.builders.data.download({
+          url: `https://files.rcsb.org/download/${id}.cif`, // Using CIF for better quality
           isBinary: false,
-          label: idOrLabel
+          label: id
         });
         const trajectory = await pluginRef.current.builders.structure.parseTrajectory(data, 'mmcif');
         const model = await pluginRef.current.builders.structure.createModel(trajectory);
         loadedStructureRef = await pluginRef.current.builders.structure.createStructure(model);
         
-        structureObj = loadedStructureRef.cell?.obj?.data;
         setStructureSource("pdb");
-        setAverageConfidence(calculateAverageConfidence(structureObj)); // Also calculate for PDBs if B-factors exist
+        setAverageConfidence(null); // Reset confidence for PDB files
         
-        const colorThemeName = viewType === 'prediction' ? 'atom-test' : 
+        // Apply representation with appropriate coloring based on view type
+        const colorThemeName = viewType === 'prediction' ? 'atom-test' : // pLDDT for predictions
                           initialColor === 'chainname' ? 'chain-id' : 
                           initialColor === 'residueindex' ? 'residue-name' :
                           initialColor === 'atomindex' ? 'element-symbol' : 
@@ -210,43 +210,53 @@ const MoleculeViewer = ({
         });
       }
       
+      // Auto-focus the structure
       await PluginCommands.Camera.Reset(pluginRef.current, {});
       
       toast({
         title: "Structure loaded",
         description: pdbData 
-          ? `Successfully loaded ${idOrLabel}` 
-          : `Successfully loaded PDB ID: ${idOrLabel}`,
+          ? "Successfully loaded predicted structure" 
+          : `Successfully loaded PDB ID: ${id}`,
       });
     } catch (error) {
       console.error('Structure loading error:', error);
       toast({
         title: "Error",
-        description: `Failed to load structure: ${idOrLabel || 'predicted data'}. Error: ${error.message}`,
+        description: `Failed to load structure: ${id || 'predicted data'}. Please check your input or network.`,
         variant: "destructive",
       });
-       setAverageConfidence(null); // Reset on error
     }
   };
 
+  // Handle protein sequence submission for structure prediction
   const handlePrediction = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!sequence.trim()) {
-      toast({ title: "Empty Sequence", description: "Please enter a protein sequence.", variant: "destructive" });
+      toast({
+        title: "Empty Sequence",
+        description: "Please enter a protein sequence.",
+        variant: "destructive",
+      });
       return;
     }
     
     if (!validateSequence(sequence)) {
-      toast({ title: "Invalid Sequence", description: "Please enter a valid protein sequence.", variant: "destructive" });
+      toast({
+        title: "Invalid Sequence",
+        description: "Please enter a valid protein sequence containing only amino acid letters.",
+        variant: "destructive",
+      });
       return;
     }
     
     setPredicting(true);
     setProgress(0);
     setResult(null);
-    setAverageConfidence(null);
+    setAverageConfidence(null); // Reset confidence before new prediction
     
+    // Progress simulation
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
         const newProgress = prev + Math.random() * 10;
@@ -255,35 +265,135 @@ const MoleculeViewer = ({
     }, 800);
     
     try {
-      // Using a placeholder API key for demo as per original code
-      const apiKey = "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"; 
+      // For demo purposes, we're using a demo API key from ModelDetail.tsx
+      const apiKey = "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";
       
       const apiResult = await predictStructure(sequence, apiKey, selectedModel);
-      console.log('API Response for prediction:', apiResult);
+      console.log('API Response:', apiResult);
 
       clearInterval(progressInterval);
       setProgress(100);
       
       if (apiResult.success && apiResult.data) {
-        setResult({ pdbString: apiResult.data, json: apiResult.json });
-        loadStructure(`predicted_${selectedModel}_structure`, apiResult.data);
-        toast({ title: "Success", description: "Structure prediction completed successfully!" });
+        setResult({
+          pdbString: apiResult.data,
+          json: apiResult.json
+        });
+        
+        // Load the predicted structure
+        loadStructure("predicted_structure", apiResult.data); // Pass a label and PDB data
+        
+        toast({
+          title: "Success",
+          description: "Structure prediction completed successfully!",
+        });
       } else {
         setResult({ error: apiResult.error });
-        toast({ title: "Prediction Failed", description: apiResult.error || "An error occurred during prediction.", variant: "destructive" });
+        toast({
+          title: "Prediction Failed",
+          description: apiResult.error || "An error occurred during prediction.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       clearInterval(progressInterval);
       setProgress(0);
       setResult({ error: error instanceof Error ? error.message : "Unknown error occurred" });
-      toast({ title: "Error", description: "Failed to connect to the prediction service.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to connect to the prediction service.",
+        variant: "destructive",
+      });
     } finally {
       setPredicting(false);
     }
   };
   
-  // renderLigandViewer is removed as docking tab is simplified / uses main viewer
+  // Render 3D ligand view for docking tab
+  const renderLigandViewer = () => {
+    const ligandViewerRef = useRef<HTMLDivElement>(null);
+    const ligandPluginRef = useRef<PluginContext | null>(null);
+    
+    useEffect(() => {
+      if (!ligandViewerRef.current) return;
+      
+      const initLigandViewer = async () => {
+        try {
+          // Create canvas element
+          const canvas = document.createElement('canvas');
+          ligandViewerRef.current.appendChild(canvas);
 
+          // Initialize Mol* plugin for ligand
+          const plugin = new PluginContext(DefaultPluginSpec());
+          await plugin.init();
+          plugin.initViewer(canvas, ligandViewerRef.current);
+          ligandPluginRef.current = plugin;
+          
+          // Load the protein structure but only show ligand
+          const loadLigand = async () => {
+            try {
+              const data = await plugin.builders.data.download({
+                url: `https://files.rcsb.org/download/${initialPdbId}.cif`,
+                isBinary: false
+              });
+              const trajectory = await plugin.builders.structure.parseTrajectory(data, 'mmcif');
+              const model = await plugin.builders.structure.createModel(trajectory);
+              
+              // Create structure with ligand selection
+              const structure = await plugin.builders.structure.createStructure(model, {
+                name: 'ligand-only'
+                // Add query for ligand selection if needed, e.g. by HETATM
+              });
+              
+              // Add ball-and-stick representation for ligands
+              await plugin.builders.structure.representation.addRepresentation(structure, {
+                type: 'ball-and-stick',
+                colorTheme: { name: 'element-symbol' }
+              });
+              
+              await PluginCommands.Camera.Reset(plugin, {});
+            } catch (error) {
+              console.error("Failed to load ligand:", error);
+            }
+          };
+          
+          loadLigand();
+          
+          // Handle window resize
+          const handleResize = () => {
+            plugin.canvas3d?.handleResize();
+          };
+          window.addEventListener('resize', handleResize);
+          
+          return () => {
+            window.removeEventListener('resize', handleResize);
+            plugin.dispose();
+          };
+        } catch (error) {
+          console.error('Failed to initialize ligand viewer:', error);
+        }
+      };
+      
+      initLigandViewer();
+    }, [initialPdbId]);
+    
+    return (
+      <div className="p-4 space-y-4">
+        <h3 className="text-lg font-medium">Ligand 3D Structure</h3>
+        <div className="bg-muted/30 p-4 rounded-md">
+          <div className="aspect-square max-w-[400px] mx-auto relative">
+            <div ref={ligandViewerRef} className="absolute inset-0" />
+          </div>
+          <div className="mt-4 text-sm text-muted-foreground">
+            <p>PDB ID: {initialPdbId}</p>
+            <p>Showing 3D structure of ligand only</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render sequence input for structure prediction similar to ModelDetail.tsx
   const renderSequenceInput = () => {
     const handleLoadExample = () => {
       setSequence("FVNQHLCGSHLVEALYLVCGERGFFYTPKA"); // Insulin sequence example
@@ -329,7 +439,7 @@ const MoleculeViewer = ({
           
           <div className="flex justify-between items-center">
             <Button 
-              type="button" 
+              type="button" // Ensure it doesn't submit the form
               variant="outline" 
               size="sm" 
               onClick={handleLoadExample}
@@ -360,6 +470,7 @@ const MoleculeViewer = ({
             COST : {selectedModel === 'alphafold2' ? '2' : '1'} credit (Demo mode)
           </p>
           
+          {/* Confidence color legend */}
           {structureSource === "prediction" && averageConfidence !== null && (
             <div className="mt-4 space-y-2">
               <h4 className="font-medium text-sm">Predicted Confidence (pLDDT)</h4>
@@ -369,9 +480,9 @@ const MoleculeViewer = ({
                 </p>
                 <div className="h-3 w-full bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500 rounded-full" />
                 <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>Low (&lt;50)</span> {/* Simpler labels */}
+                  <span>Low (pLDDT &lt; 50)</span>
                   <span>Confident (70-90)</span>
-                  <span>Very High (&gt;90)</span>
+                  <span>Very High (&gt; 90)</span>
                 </div>
               </div>
             </div>
@@ -425,52 +536,36 @@ const MoleculeViewer = ({
   
   return (
     <div className="flex flex-col h-full">
-      <div className="flex flex-1 min-h-0">
+      {/* Top bar with external controls removed */}
+      {/* Advanced controls bar removed */}
+      
+      <div className="flex flex-1 min-h-0"> {/* Added min-h-0 to prevent layout issues */}
         {viewType === "docking" ? (
           <div className="flex flex-col md:flex-row w-full">
-            <div className="w-full md:w-1/2 md:border-r border-b md:border-b-0 overflow-y-auto p-4">
-              <h3 className="text-lg font-medium mb-2">Docking View</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Docking controls and information would appear here. The 3D viewer shows the protein target.
-                Ligand loading/selection would be managed via Mol* controls or dedicated UI.
-              </p>
-              {/* Placeholder for docking specific controls or info */}
-              <div className="bg-muted/10 p-3 rounded">
-                <p className="text-xs">PDB ID: {initialPdbId || "N/A"}</p>
-                <p className="text-xs mt-1">Use Mol* controls (usually on the left or via panel) to interact with the structure.</p>
-              </div>
+            <div className="w-full md:w-1/2 md:border-r border-b md:border-b-0 overflow-y-auto"> {/* Added overflow */}
+              {/* {renderLigandViewer()} // This is still commented out */}
+              <div className="p-4">Placeholder for Docking Controls/Info</div>
             </div>
-            <div className="w-full md:w-1/2 h-[400px] md:h-auto bg-black/5 relative">
+            <div className="w-full md:w-1/2 h-[400px] md:h-auto bg-black/5 relative"> {/* Min height for visibility */}
               <div ref={viewerRef} className="absolute inset-0" />
-               {(!pluginRef.current?.state?.data?.models?.size && initialPdbId) && (
-                <div className="absolute top-4 left-4 bg-background/80 p-2 rounded text-xs shadow">
-                    Loading {initialPdbId}...
-                </div>
-              )}
             </div>
           </div>
         ) : viewType === "prediction" ? (
           <div className="flex flex-col md:flex-row w-full">
-            <div className="w-full md:w-1/3 border-r overflow-y-auto">
+            <div className="w-full md:w-1/3 border-r overflow-y-auto"> {/* Added overflow */}
               {renderSequenceInput()}
             </div>
-            <div className="w-full md:w-2/3 h-[400px] md:h-auto bg-black/5 relative">
+            <div className="w-full md:w-2/3 h-[400px] md:h-auto bg-black/5 relative"> {/* Min height for visibility */}
               <div ref={viewerRef} className="absolute inset-0" />
-              {/* Message for prediction view if no structure yet */}
-              {(!pluginRef.current?.state?.data?.models?.size && !predicting) && (
-                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground p-4 text-center">
-                    Enter a sequence and click "Predict Structure" to view the model.
-                </div>
-              )}
             </div>
           </div>
         ) : ( // Standard view
           <div className="flex-1 h-full bg-black/5 relative">
             <div ref={viewerRef} className="absolute inset-0" />
-             {/* Check pluginRef.current, then state, then data, then models, then size */}
-             {(!pluginRef.current?.state?.data?.models?.size && initialPdbId) && (
-                <div className="absolute top-4 left-4 bg-background/80 p-2 rounded text-xs shadow">
-                    Loading {initialPdbId}... Use Mol* controls.
+             {/* Instructions for standard view if needed */}
+             {!pluginRef.current?.state.data.models.length && initialPdbId && (
+                <div className="absolute top-4 left-4 bg-background/80 p-2 rounded text-xs">
+                    Loading {initialPdbId}... Use Mol* controls on the left.
                 </div>
             )}
           </div>
