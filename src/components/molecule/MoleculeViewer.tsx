@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ import { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { PluginCommands } from 'molstar/lib/mol-plugin/commands';
 import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
-import { StructureRepresentation3D } from 'molstar/lib/mol-repr/structure/representation3d';
+import { StructureRepresentation3D } from 'molstar/lib/mol-plugin-state/objects';
 import { Structure } from 'molstar/lib/mol-model/structure';
 import { StateObjectRef, StateObjectCell } from "molstar/lib/mol-state";
 
@@ -112,7 +113,7 @@ const MoleculeViewer = ({
   }, [pdb]); // Removed toast from dependencies as it's stable
 
   const calculateAverageConfidence = (structureData: Structure | undefined) => {
-    if (!structureData) return null;
+    if (!structureData || !structureData.units) return null;
     
     let totalBfactor = 0;
     let atomCount = 0;

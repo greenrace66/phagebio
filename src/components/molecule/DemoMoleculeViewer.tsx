@@ -23,6 +23,7 @@ import { PluginCommands } from 'molstar/lib/mol-plugin/commands';
 import 'molstar/lib/mol-plugin-ui/skin/light.scss';
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
 import { Structure } from "molstar/lib/mol-model/structure"; // Added for calculateAverageConfidence
+import { StateObjectRef } from "molstar/lib/mol-state";
 
 interface MoleculeViewerProps {
   initialPdbId?: string;
@@ -126,8 +127,7 @@ const MoleculeViewer = ({
   }, [initialPdbId, viewType]); // Removed toast from deps
 
   const calculateAverageConfidence = (structureData: Structure | undefined) => {
-    // ... keep existing code (calculateAverageConfidence implementation)
-    if (!structureData) return null;
+    if (!structureData || !structureData.units) return null;
     
     let totalBfactor = 0;
     let atomCount = 0;
@@ -148,7 +148,6 @@ const MoleculeViewer = ({
   };
 
   const loadStructure = async (idOrLabel: string, pdbData?: string) => {
-    // ... keep existing code (loadStructure implementation, careful with structure object)
     if (!pluginRef.current) return;
     
     try {
@@ -231,7 +230,6 @@ const MoleculeViewer = ({
   };
 
   const handlePrediction = async (e: React.FormEvent) => {
-    // ... keep existing code (handlePrediction implementation)
     e.preventDefault();
     
     if (!sequence.trim()) {
@@ -287,7 +285,6 @@ const MoleculeViewer = ({
   // renderLigandViewer is removed as docking tab is simplified / uses main viewer
 
   const renderSequenceInput = () => {
-    // ... keep existing code (renderSequenceInput JSX and logic)
     const handleLoadExample = () => {
       setSequence("FVNQHLCGSHLVEALYLVCGERGFFYTPKA"); // Insulin sequence example
       toast({
