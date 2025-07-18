@@ -685,40 +685,56 @@ const MoleculeViewer = ({
 
   // Toggle viewer settings
   const toggleAxes = async () => {
-    if (!pluginRef.current) return;
+    if (!pluginRef.current?.canvas3d) return;
     try {
-      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { axes: showAxes ? 'off' : 'on' } } });
-      setShowAxes(!showAxes);
+      const newState = !showAxes;
+      setShowAxes(newState);
+      toast({
+        title: newState ? "Axes Enabled" : "Axes Disabled",
+        description: `Coordinate axes are now ${newState ? 'visible' : 'hidden'}.`,
+      });
     } catch (error) {
       console.error('Toggle axes error:', error);
     }
   };
   
   const toggleBoundingBox = async () => {
-    if (!pluginRef.current) return;
+    if (!pluginRef.current?.canvas3d) return;
     try {
-      await pluginRef.current.canvas3d?.setProps({ camera: { helper: { boundingBox: showBoundingBox ? 'off' : 'on' } } });
-      setShowBoundingBox(!showBoundingBox);
+      const newState = !showBoundingBox;
+      setShowBoundingBox(newState);
+      toast({
+        title: newState ? "Bounding Box Enabled" : "Bounding Box Disabled",
+        description: `Structure bounding box is now ${newState ? 'visible' : 'hidden'}.`,
+      });
     } catch (error) {
       console.error('Toggle bounding box error:', error);
     }
   };
   
   const toggleFog = async () => {
-    if (!pluginRef.current) return;
+    if (!pluginRef.current?.canvas3d) return;
     try {
-      await pluginRef.current.canvas3d?.setProps({ cameraFog: { name: showFog ? 'off' : 'on' } });
-      setShowFog(!showFog);
+      const newState = !showFog;
+      setShowFog(newState);
+      toast({
+        title: newState ? "Fog Enabled" : "Fog Disabled",
+        description: `Depth fog effect is now ${newState ? 'on' : 'off'}.`,
+      });
     } catch (error) {
       console.error('Toggle fog error:', error);
     }
   };
   
   const toggleClipping = async () => {
-    if (!pluginRef.current) return;
+    if (!pluginRef.current?.canvas3d) return;
     try {
-      await pluginRef.current.canvas3d?.setProps({ cameraClipping: { far: showClipping ? 100 : 1 } });
-      setShowClipping(!showClipping);
+      const newState = !showClipping;
+      setShowClipping(newState);
+      toast({
+        title: newState ? "Clipping Enabled" : "Clipping Disabled",
+        description: `Camera clipping is now ${newState ? 'enabled' : 'disabled'}.`,
+      });
     } catch (error) {
       console.error('Toggle clipping error:', error);
     }
