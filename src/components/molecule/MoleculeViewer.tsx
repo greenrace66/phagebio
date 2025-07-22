@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,10 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DefaultPluginSpec } from 'molstar/lib/mol-plugin/spec';
-import { PluginContext } from 'molstar/lib/mol-plugin/context';
-import { PluginCommands } from 'molstar/lib/mol-plugin/commands';
-import 'molstar/lib/mol-plugin-ui/skin/light.scss';
+import * as NGL from "ngl";
 import { validateSequence, cleanSequence, predictStructure } from "@/utils/proteinApi";
 
 interface MoleculeViewerProps {
@@ -31,7 +27,7 @@ const MoleculeViewer = ({
   pdb
 }: MoleculeViewerProps) => {
   const viewerRef = useRef<HTMLDivElement>(null);
-  const pluginRef = useRef<PluginContext | null>(null);
+  const stageRef = useRef<any>(null);
   const { toast } = useToast();
   
   // Structure prediction states
@@ -46,113 +42,63 @@ const MoleculeViewer = ({
   }>({ pdbData: null, confidence: null });
   const [averageConfidence, setAverageConfidence] = useState<number | null>(null);
 
-  // Toggle additional viewer controls
-  const [showAdvancedControls, setShowAdvancedControls] = useState(false);
-
   useEffect(() => {
     if (!viewerRef.current) return;
 
-    const initMolstar = async () => {
-      try {
-        // Create canvas element
-        const canvas = document.createElement('canvas');
-        viewerRef.current.appendChild(canvas);
+    // Initialize NGL Stage
+    const stage = new NGL.Stage(viewerRef.current, { backgroundColor: "white" });
+    stageRef.current = stage;
 
-        // Initialize Mol* plugin
-        const spec = {
-          ...DefaultPluginSpec(),
-          layout: {
-            initial: {
-              isExpanded: false,
-              showControls: true,
-              controlsDisplay: 'reactive' as const
-            }
-          }
-        };
-        const plugin = new PluginContext(spec);
-        await plugin.init();
-        plugin.initViewer(canvas, viewerRef.current);
-        pluginRef.current = plugin;
+    if (pdb) {
+      loadStructure(pdb);
+    }
 
-        if (pdb) {
-          loadStructure(pdb);
-        }
-
-        // Handle window resize
-        const handleResize = () => {
-          plugin.canvas3d?.handleResize();
-        };
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-          window.removeEventListener('resize', handleResize);
-          plugin.dispose();
-        };
-      } catch (error) {
-        console.error('Failed to initialize Mol*:', error);
-        toast({
-          title: "Initialization Error",
-          description: "Failed to initialize the molecular viewer.",
-          variant: "destructive",
-        });
-      }
+    // Handle window resize
+    const handleResize = () => {
+      stage.handleResize();
     };
+    window.addEventListener('resize', handleResize);
 
-    initMolstar();
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      stage.dispose();
+    };
   }, [pdb]);
 
-  const calculateAverageConfidence = (structure: any) => {
-    if (!structure) return null;
+  const calculateAverageConfidence = (component: any) => {
+    if (!component) return null;
     
     let totalBfactor = 0;
     let atomCount = 0;
     
-    // Iterate through structure units and atoms
-    for (const unit of structure.units) {
-      const { elements } = unit;
-      const bFactors = unit.model.atomicConformation.B_iso_or_equiv;
-      
-      for (let i = 0; i < elements.length; i++) {
-        totalBfactor += bFactors.value(elements[i]);
-        atomCount++;
-      }
-    }
+    component.structure.eachAtom((atom: any) => {
+      totalBfactor += atom.bfactor;
+      atomCount++;
+    });
     
     return atomCount > 0 ? totalBfactor / atomCount : null;
   };
 
   const loadStructure = async (pdbData: string) => {
-    if (!pluginRef.current) return;
+    if (!stageRef.current) return;
     
     try {
       // Clear existing structures
-      await pluginRef.current.clear();
+      stageRef.current.removeAllComponents();
       
-      // Load from PDB string data
-      const data = await pluginRef.current.builders.data.rawData({
-        data: pdbData,
-        label: 'Predicted Structure'
-      });
-      const trajectory = await pluginRef.current.builders.structure.parseTrajectory(data, 'pdb');
-      const model = await pluginRef.current.builders.structure.createModel(trajectory);
-      const structure = await pluginRef.current.builders.structure.createStructure(model);
+      const component = await stageRef.current.loadFile(
+        new Blob([pdbData], {type: 'text/plain'}),
+        { ext: 'pdb' }
+      );
       
       // Calculate average confidence
-      const avgConf = calculateAverageConfidence(structure.data);
+      const avgConf = calculateAverageConfidence(component);
       setAverageConfidence(avgConf);
       
-      // Apply representation with bfactor coloring for predictions
-      const reprType = initialStyle === 'cartoon' ? 'cartoon' : 
-                      initialStyle === 'spacefill' ? 'spacefill' :
-                      initialStyle === 'licorice' ? 'ball-and-stick' : 'cartoon';
-      
-      await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-        type: reprType,
-        colorTheme: { name: 'atom-test' }
+      component.addRepresentation(initialStyle, {
+        color: 'bfactor'
       });
-      
-      // Auto-focus the structure
-      await PluginCommands.Camera.Reset(pluginRef.current, {});
+      component.autoView();
       
       setStructureSource("prediction");
       toast({
@@ -160,7 +106,6 @@ const MoleculeViewer = ({
         description: "Successfully loaded predicted structure",
       });
     } catch (error) {
-      console.error('Structure loading error:', error);
       toast({
         title: "Error",
         description: "Failed to load structure. Please check your input.",
@@ -203,7 +148,7 @@ const MoleculeViewer = ({
         });
       }, 1000);
       
-      const result = await predictStructure(sequence, apiKey, "esmfold");
+      const result = await predictStructure(sequence, apiKey);
       
       clearInterval(progressInterval);
       
@@ -258,114 +203,35 @@ const MoleculeViewer = ({
   };
 
   // Handle style changes
-  const handleStyleChange = async (style: string) => {
-    if (!pluginRef.current) return;
+  const handleStyleChange = (style: string) => {
+    const component = stageRef.current?.compList[0];
+    if (!component) return;
 
-    try {
-      // Get current structure
-      const structures = pluginRef.current.managers.structure.hierarchy.current.structures;
-      if (structures.length === 0) return;
-
-      const structure = structures[0];
-      
-      // Remove existing representations
-      const state = pluginRef.current.state.data;
-      const reprs = state.selectQ(q => q.ofType(pluginRef.current.managers.structure.representation.StructureRepresentation3D));
-      for (const repr of reprs) {
-        await PluginCommands.State.RemoveObject(pluginRef.current, { state, ref: repr.transform.ref });
-      }
-
-      // Add new representation
-      const reprType = style === 'cartoon' ? 'cartoon' : 
-                      style === 'spacefill' ? 'spacefill' :
-                      style === 'licorice' ? 'ball-and-stick' : 'cartoon';
-      
-      // Use appropriate coloring based on structure source
-      let colorTheme;
-      if (structureSource === 'prediction') {
-        // Always use pLDDT coloring for predictions
-        colorTheme = 'atom-test';
-      } else {
-        // For PDB structures, use the current color scheme
-        const currentColorSelect = document.querySelector('select[placeholder="Color"]') as HTMLSelectElement;
-        const currentColor = currentColorSelect?.value || 'bfactor';
-        
-        colorTheme = currentColor === 'chainname' ? 'chain-id' : 
-                    currentColor === 'residueindex' ? 'residue-name' :
-                    currentColor === 'atomindex' ? 'element-symbol' :
-                    currentColor === 'bfactor' ? 'atom-test' : 'chain-id';
-      }
-      
-      await pluginRef.current.builders.structure.representation.addRepresentation(structure, {
-        type: reprType,
-        colorTheme: { name: colorTheme }
-      });
-    } catch (error) {
-      console.error('Style change error:', error);
-    }
+    component.removeAllRepresentations();
+    component.addRepresentation(style, {
+      color: 'bfactor'
+    });
   };
 
   // Handle color scheme changes
-  const handleColorChange = async (colorScheme: string) => {
-    if (!pluginRef.current) return;
+  const handleColorChange = (colorScheme: string) => {
+    const component = stageRef.current?.compList[0];
+    if (!component) return;
 
-    try {
-      const state = pluginRef.current.state.data;
-      const reprs = state.selectQ(q => q.ofType(pluginRef.current.managers.structure.representation.StructureRepresentation3D));
-      if (reprs.length === 0) return;
-
-      // Map color schemes to Mol* color themes
-      let colorThemeName;
-      
-      // For prediction structures, always use atom-test (pLDDT) if bfactor is selected
-      if (structureSource === 'prediction') {
-        // Always use pLDDT coloring for predictions
-        colorThemeName = 'atom-test';
-      } else {
-        // For other cases, map to appropriate color themes
-        switch (colorScheme) {
-          case 'chainname':
-            colorThemeName = 'chain-id';
-            break;
-          case 'residueindex':
-            colorThemeName = 'residue-name';
-            break;
-          case 'atomindex':
-            colorThemeName = 'element-symbol';
-            break;
-          case 'bfactor':
-            colorThemeName = 'atom-test';
-            break;
-          default:
-            colorThemeName = 'chain-id';
-        }
-      }
-
-      for (const repr of reprs) {
-        await PluginCommands.State.Update(pluginRef.current, {
-          state,
-          tree: repr,
-          options: {
-            colorTheme: { name: colorThemeName }
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Color change error:', error);
+    const currentRepresentation = component.reprList[0];
+    if (currentRepresentation) {
+      currentRepresentation.setParameters({ color: colorScheme });
     }
   };
 
   // Reset view
-  const handleResetView = async () => {
-    if (!pluginRef.current) return;
-    
-    try {
-      await PluginCommands.Camera.Reset(pluginRef.current, {});
-    } catch (error) {
-      console.error('Reset view error:', error);
+  const handleResetView = () => {
+    const component = stageRef.current?.compList[0];
+    if (component) {
+      component.autoView();
     }
   };
-  
+
   return (
     <div className="flex flex-col h-full">
       <div className="bg-muted/30 border-b px-2 sm:px-4 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-start sm:justify-between gap-2">
@@ -378,6 +244,7 @@ const MoleculeViewer = ({
               <SelectItem value="cartoon">Cartoon</SelectItem>
               <SelectItem value="spacefill">Sphere</SelectItem>
               <SelectItem value="licorice">Stick</SelectItem>
+              <SelectItem value="surface">Surface</SelectItem>
             </SelectContent>
           </Select>
           
@@ -392,15 +259,6 @@ const MoleculeViewer = ({
               <SelectItem value="bfactor">pLDDT</SelectItem>
             </SelectContent>
           </Select>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setShowAdvancedControls(!showAdvancedControls)} 
-            className="h-8 text-xs"
-          >
-            {showAdvancedControls ? "Hide Controls" : "More Controls"}
-          </Button>
         </div>
         
         <div className="flex flex-wrap items-center gap-2">
