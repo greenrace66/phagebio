@@ -256,7 +256,7 @@ const ModelDetail = () => {
                     <div className="bg-muted rounded-full p-2">
                       <ModelIcon 
                         iconName={model.icon} 
-                        className={`h-6 w-6 ${model.icon === 'FileCode' ? 'text-phage-500' : 'text-molecular-500'}`} 
+                        className={`h-6 w-6 ${model.icon === 'FileCode' ? 'text-Phage-500' : 'text-molecular-500'}`} 
                       />
                     </div>
                     <div>
@@ -350,7 +350,7 @@ const ModelDetail = () => {
                     </div>
                   ) : isLoading ? (
                     <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-                      <Loader2 className="h-16 w-16 text-phage-500 animate-spin mb-4" />
+                      <Loader2 className="h-16 w-16 text-Phage-500 animate-spin mb-4" />
                       <h3 className="text-lg font-medium">Processing Your Request</h3>
                       <p className="text-sm text-muted-foreground max-w-md mt-2">
                         This may take a minute or two depending on the sequence length.

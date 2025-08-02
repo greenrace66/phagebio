@@ -65,7 +65,7 @@ const Login = () => {
       } else {
         toast({
           title: "Login successful",
-          description: "Welcome back to phage!"
+          description: "Welcome back to Phage!"
         });
         navigate("/");
       }
@@ -153,12 +153,12 @@ const Login = () => {
         <div className="flex justify-center mb-8">
           <Link to="/" className="flex items-center">
             <div className="mr-3 relative w-8 h-8">
-              <div className="absolute inset-0 bg-phage-500 rounded-full opacity-70 molecule-spinner"></div>
+              <div className="absolute inset-0 bg-Phage-500 rounded-full opacity-70 molecule-spinner"></div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-6 h-6 bg-white dark:bg-black rounded-full"></div>
               </div>
             </div>
-            <span className="text-xl font-bold text-gradient">phage</span>
+            <span className="text-xl font-bold text-gradient">Phage</span>
           </Link>
         </div>
         
@@ -361,7 +361,7 @@ const Login = () => {
 
         <div className="text-center mt-6">
           <p className="text-sm text-muted-foreground">
-            By continuing, you agree to phage's 
+            By continuing, you agree to Phage's 
             <a href="/terms" className="text-primary hover:underline mx-1">Terms of Service</a>
             and
             <a href="/privacy" className="text-primary hover:underline mx-1">Privacy Policy</a>.

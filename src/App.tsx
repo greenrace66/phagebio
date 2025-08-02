@@ -21,7 +21,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="system" storageKey="phage-ui-theme">
+    <ThemeProvider defaultTheme="system" storageKey="Phage-ui-theme">
       <AuthProvider>
         <RazorpayProvider>
           <TooltipProvider>

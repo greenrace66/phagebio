@@ -14,7 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      phage: {
+      Phage: {
         Row: {
           created_at: string
           id: number

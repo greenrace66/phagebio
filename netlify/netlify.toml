@@ -1,6 +1,6 @@
 redirectsOrigin = "config"
 plugins = []
-functionsDirectory = "C:\\Users\\nikil\\Downloads\\phagefromgit\\src\\app\\api"
+functionsDirectory = "C:\\Users\\nikil\\Downloads\\Phagefromgit\\src\\app\\api"
 functionsDirectoryOrigin = "config-v1"
 headers = []
 
@@ -15,11 +15,11 @@ functions = "src/app/api"
 [functions."*"]
 
 [build]
-publish = "C:\\Users\\nikil\\Downloads\\phagefromgit\\dist"
+publish = "C:\\Users\\nikil\\Downloads\\Phagefromgit\\dist"
 publishOrigin = "config"
 commandOrigin = "config"
 command = "npm run build"
-functions = "C:\\Users\\nikil\\Downloads\\phagefromgit\\src\\app\\api"
+functions = "C:\\Users\\nikil\\Downloads\\Phagefromgit\\src\\app\\api"
 
 [build.environment]
 

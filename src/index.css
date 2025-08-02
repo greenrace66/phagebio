@@ -104,6 +104,6 @@
   }
   
   .text-gradient {
-    @apply bg-gradient-to-r from-phage-600 to-molecular-600 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-Phage-600 to-molecular-600 bg-clip-text text-transparent;
   }
 }

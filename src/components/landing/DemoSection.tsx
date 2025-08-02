@@ -8,7 +8,7 @@ const DemoSection = () => {
       <div className="container px-4 md:px-6">
         <div className="flex flex-col items-center text-center space-y-4 mb-12">
           <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-            See phage in Action
+            See Phage in Action
           </h2>
           <p className="max-w-[600px] text-muted-foreground text-lg">
             Experience the power of our intuitive visualization and analysis tools.

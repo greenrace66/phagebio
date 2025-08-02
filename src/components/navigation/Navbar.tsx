@@ -120,12 +120,12 @@ const Navbar = () => {
         <div className="flex items-center">
           <Link to="/" className="flex items-center">
             <div className="mr-3 relative w-8 h-8">
-              <div className="absolute inset-0 bg-phage-500 rounded-full opacity-70 molecule-spinner"></div>
+              <div className="absolute inset-0 bg-Phage-500 rounded-full opacity-70 molecule-spinner"></div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-6 h-6 bg-white dark:bg-black rounded-full"></div>
               </div>
             </div>
-            <span className="text-xl font-bold text-gradient">phage</span>
+            <span className="text-xl font-bold text-gradient">Phage</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -151,12 +151,12 @@ const Navbar = () => {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <div className="mr-3 relative w-8 h-8">
-                      <div className="absolute inset-0 bg-phage-500 rounded-full opacity-70"></div>
+                      <div className="absolute inset-0 bg-Phage-500 rounded-full opacity-70"></div>
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="w-6 h-6 bg-white dark:bg-black rounded-full"></div>
                       </div>
                     </div>
-                    <span className="text-xl font-bold">phage</span>
+                    <span className="text-xl font-bold">Phage</span>
                   </Link>
                   <nav className="space-y-6">
                     <NavLinks />

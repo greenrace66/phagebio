@@ -98,7 +98,7 @@ const PricingPage = () => {
           <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
             <Card className="p-6 space-y-4">
               <div className="flex items-center space-x-2">
-                <CreditCard className="h-5 w-5 text-phage-500" />
+                <CreditCard className="h-5 w-5 text-Phage-500" />
                 <h2 className="text-2xl font-bold">Credit System</h2>
               </div>
               <div className="text-3xl font-bold">$1 = 100 Credits</div>
@@ -112,7 +112,7 @@ const PricingPage = () => {
 
             <Card className="p-6 space-y-4 bg-muted/30">
               <div className="flex items-center space-x-2">
-                <Package className="h-5 w-5 text-phage-500" />
+                <Package className="h-5 w-5 text-Phage-500" />
                 <h2 className="text-2xl font-bold">Purchase Credits</h2>
               </div>
               
@@ -144,7 +144,7 @@ const PricingPage = () => {
                 
                 <button
                   onClick={handlePurchase}
-                  className="w-full mt-4 bg-phage-500 hover:bg-phage-600 text-white font-semibold py-2 px-4 rounded shadow focus:outline-none focus:ring-2 focus:ring-phage-400 focus:ring-opacity-50 disabled:opacity-50"
+                  className="w-full mt-4 bg-Phage-500 hover:bg-Phage-600 text-white font-semibold py-2 px-4 rounded shadow focus:outline-none focus:ring-2 focus:ring-Phage-400 focus:ring-opacity-50 disabled:opacity-50"
                   disabled={loading}
                 >
                   {loading ? 'Processing...' : `Purchase ${credits} Credits`}
