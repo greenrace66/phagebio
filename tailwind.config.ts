@@ -63,7 +63,7 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				biostruct: {
+				phage: {
 					50: '#f0f7ff',
 					100: '#e0eefe',
 					200: '#bae0fe',

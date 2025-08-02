@@ -112,7 +112,7 @@ export const RazorpayProvider: React.FC<RazorpayProviderProps> = ({ children }) 
             email: user.email || '',
           },
           theme: {
-            color: '#10b981', // biostruct-500 color
+            color: '#10b981', // phage-500 color
           },
           handler: async function (response: RazorpayPayment) {
             try {

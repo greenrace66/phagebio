@@ -27,8 +27,8 @@ const Hero = () => {
   return (
     <section className="py-16 md:py-24 lg:py-32 relative overflow-hidden">
       {/* Background decoration */}
-      <div className="absolute -top-24 -right-24 w-96 h-96 bg-gradient-to-br from-biostruct-200/30 to-molecular-200/30 rounded-full blur-3xl"></div>
-      <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-gradient-to-tr from-biostruct-200/20 to-molecular-200/20 rounded-full blur-3xl"></div>
+      <div className="absolute -top-24 -right-24 w-96 h-96 bg-gradient-to-br from-phage-200/30 to-molecular-200/30 rounded-full blur-3xl"></div>
+      <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-gradient-to-tr from-phage-200/20 to-molecular-200/20 rounded-full blur-3xl"></div>
       
       <div className="container px-4 md:px-6">
         <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
@@ -38,7 +38,7 @@ const Hero = () => {
                 <span className="text-gradient">Structural Biology</span> Made Simple
               </h1>
               <p className="max-w-[600px] text-muted-foreground md:text-xl">
-                BioStruct brings powerful computational tools to researchers without the complexity. 
+                phage brings powerful computational tools to researchers without the complexity. 
                 Predict structures, analyze binding sites, and accelerate your discoveries.
               </p>
             </div>

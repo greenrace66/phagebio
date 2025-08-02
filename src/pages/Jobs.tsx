@@ -74,7 +74,7 @@ const Jobs = () => {
         <Navbar />
         <div className="flex-1 flex items-center justify-center">
           <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 border-2 border-biostruct-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-6 h-6 border-2 border-phage-500 border-t-transparent rounded-full animate-spin"></div>
             <span>Loading user...</span>
           </div>
         </div>
@@ -132,7 +132,7 @@ const Jobs = () => {
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg flex items-center space-x-2">
-                        <FileCode className="h-5 w-5 text-biostruct-500" />
+                        <FileCode className="h-5 w-5 text-phage-500" />
                         <span>{job.model_id.toUpperCase()}</span>
                       </CardTitle>
                       <Badge className={`${getStatusColor(job.status)} border-0`}>

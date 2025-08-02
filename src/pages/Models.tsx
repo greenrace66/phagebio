@@ -44,7 +44,7 @@ const ModelsPage = () => {
                   model.disabled 
                     ? "opacity-50 cursor-not-allowed" 
                     : "hover:shadow-lg transform hover:-translate-y-1 cursor-pointer"
-                } ${hoveredCard === model.id && !model.disabled ? "border-biostruct-300" : ""}`}
+                } ${hoveredCard === model.id && !model.disabled ? "border-phage-300" : ""}`}
                 onClick={() => handleCardClick(model.id, model.disabled)}
                 onMouseEnter={() => !isMobile && setHoveredCard(model.id)}
                 onMouseLeave={() => !isMobile && setHoveredCard(null)}
@@ -64,7 +64,7 @@ const ModelsPage = () => {
                     <div className="bg-muted rounded-full p-3">
                       <ModelIcon 
                         iconName={model.icon} 
-                        className={`h-6 w-6 ${model.icon === 'FileCode' ? 'text-biostruct-500' : 'text-molecular-500'}`} 
+                        className={`h-6 w-6 ${model.icon === 'FileCode' ? 'text-phage-500' : 'text-molecular-500'}`} 
                       />
                     </div>
                     <div>

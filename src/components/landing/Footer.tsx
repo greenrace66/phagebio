@@ -11,19 +11,19 @@ const Footer = () => {
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center mb-4">
               <div className="mr-3 relative w-7 h-7">
-                <div className="absolute inset-0 bg-biostruct-500 rounded-full opacity-70"></div>
+                <div className="absolute inset-0 bg-phage-500 rounded-full opacity-70"></div>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-5 h-5 bg-white rounded-full"></div>
                 </div>
               </div>
-              <span className="text-xl font-bold text-gradient">BioStruct</span>
+              <span className="text-xl font-bold text-gradient">phage</span>
             </div>
             <p className="text-muted-foreground max-w-xs">
               Making structural computational biology accessible to researchers worldwide.
             </p>
             <div className="mt-4 flex gap-4">
               <Button variant="ghost" size="icon" asChild>
-                <a href="https://twitter.com/biostruct" target="_blank" rel="noopener noreferrer">
+                <a href="https://twitter.com/phage" target="_blank" rel="noopener noreferrer">
                   <Twitter className="h-5 w-5" />
                   <span className="sr-only">Twitter</span>
                 </a>
@@ -53,7 +53,7 @@ const Footer = () => {
         </div>
         
         <div className="mt-12 pt-4 border-t border-border flex flex-col md:flex-row justify-between items-center text-sm text-muted-foreground">
-          <p>© 2025 BioStruct. All rights reserved.</p>
+          <p>© 2025 phage. All rights reserved.</p>
           <div className="flex space-x-4 mt-4 md:mt-0">
             <Link to="/terms" className="hover:text-foreground transition-colors"></Link>
             <Link to="/privacy" className="hover:text-foreground transition-colors"></Link>

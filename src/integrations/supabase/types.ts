@@ -14,7 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      biostruct: {
+      phage: {
         Row: {
           created_at: string
           id: number

@@ -11,7 +11,7 @@ import { Link } from "react-router-dom";
 const Features = () => {
   const features = [
     {
-      icon: <Search className="h-10 w-10 text-biostruct-500" />,
+      icon: <Search className="h-10 w-10 text-phage-500" />,
       title: "Structure Prediction",
       description: "Predict protein structures from sequences using state-of-the-art deep learning models."
     },
@@ -21,7 +21,7 @@ const Features = () => {
       description: "Automatically identify and analyze potential binding sites and pockets in protein structures."
     },
     {
-      icon: <FileText className="h-10 w-10 text-biostruct-500" />,
+      icon: <FileText className="h-10 w-10 text-phage-500" />,
       title: "Molecular Docking",
       description: "Screen compounds against protein targets to identify potential binding candidates."
     },
@@ -58,7 +58,7 @@ const Features = () => {
           ))}
         </div>
         
-        <div className="mt-16 max-w-3xl mx-auto bg-gradient-to-r from-biostruct-50 to-molecular-50 dark:from-biostruct-800 dark:to-molecular-800 p-8 rounded-2xl">
+        <div className="mt-16 max-w-3xl mx-auto bg-gradient-to-r from-phage-50 to-molecular-50 dark:from-phage-800 dark:to-molecular-800 p-8 rounded-2xl">
           <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
             <div className="flex-1 space-y-4">
               <h3 className="text-2xl font-bold">Ready for your research?</h3>
@@ -83,7 +83,7 @@ const Features = () => {
             <div className="flex-shrink-0">
               <Link 
                 to="/login?tab=signup" 
-                className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-biostruct-600 transition-colors inline-block text-center"
+                className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-phage-600 transition-colors inline-block text-center"
               >
                 Sign Up Free
               </Link>
