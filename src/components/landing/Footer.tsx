@@ -23,7 +23,7 @@ const Footer = () => {
             </p>
             <div className="mt-4 flex gap-4">
               <Button variant="ghost" size="icon" asChild>
-                <a href="https://twitter.com/Phage" target="_blank" rel="noopener noreferrer">
+                <a href="https://twitter.com/bionikil" target="_blank" rel="noopener noreferrer">
                   <Twitter className="h-5 w-5" />
                   <span className="sr-only">Twitter</span>
                 </a>
